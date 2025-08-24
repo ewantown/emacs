@@ -59,6 +59,7 @@ static void turn_off_face (struct frame *, int face_id);
 #endif
 
 static COORD	cursor_coords;
+static COORD	save_coords;
 static HANDLE	prev_screen, cur_screen;
 static WORD	char_attr_normal;
 static DWORD	prev_console_mode;
@@ -480,7 +481,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
 
   /* Remember current cursor coordinates so that we can restore
      them at the end.  */
-  COORD save_coords = cursor_coords;
+  save_coords = cursor_coords;
 
   /* If the root frame displays child frames, we cannot naively
      write to the terminal what the window thinks should be drawn.
@@ -616,15 +617,25 @@ w32con_set_terminal_modes (struct terminal *t)
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
    clumps rather than one-character-at-a-time...
 
-   we'll start with not moving the cursor while an update is in progress.  */
+   we'll start with not moving the cursor while an update is in progress.
+
+   ...use of WriteConsole instead of WriteConsoleOutput to handle color
+   via VT sequences results in change of the cursor position */
 static void
 w32con_update_begin (struct frame * f)
 {
+#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
+  save_coords = cursor_coords;
+  w32con_hide_cursor ();
+#endif
 }
 
 static void
 w32con_update_end (struct frame * f)
 {
+#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
+  cursor_coords = save_coords;
+#endif
   SetConsoleCursorPosition (cur_screen, cursor_coords);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
@@ -830,7 +841,7 @@ turn_on_face (struct frame *f, int face_id)
 
 	{
 	  char p[30];
-	  snprintf(p,30, "[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
+	  snprintf(p, 30, "[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
 	  WriteConsole (cur_screen, p, strlen(p), &r, NULL);
 
 	  char q[30];
