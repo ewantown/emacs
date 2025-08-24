@@ -760,8 +760,8 @@ turn_on_face (struct frame *f, int face_id)
   sz--;
 
   // Save cursor position and hide cursor as WriteConsole advances
-  n += snprintf (p + n, sz - n, "%s", "[7"); /* save position */
-  n += snprintf (p + n, sz - n, "%s", "[?25l"); /* hide cursor */
+  n += snprintf (p + n, sz - n, "[7"); /* save position */
+  n += snprintf (p + n, sz - n, "[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
     n += snprintf (p + n, sz - n, "[%dm", 1);
@@ -816,7 +816,7 @@ turn_off_face (struct frame *f, int face_id)
 
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   if (console_cursor_info.bVisible)
-    n += snprintf (p, sz - n, "%s", "[?25h"); /* show cursor */
+    n += snprintf (p, sz - n, "[?25h"); /* show cursor */
 
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
