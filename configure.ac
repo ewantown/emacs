@@ -299,6 +299,21 @@ AC_ARG_WITH([all],
   [with_features=$withval],
   [with_features=yes])
 
+AC_ARG_WITH([w32-vt-color],
+[AS_HELP_STRING([--with-w32-vt-color=ARG],
+[use VT sequences for w32 console color (ARG one of: no, 16, 156, 24bit)])],
+[    case "${withval}" in
+     no )    val=no ;;
+     16 )    val=16 ;;
+     256 )   val=256 ;;
+     24bit ) val=24bit ;;
+     * )
+     AC_MSG_ERROR(['--with-vt-color=$withval' is invalid;
+     the value should be 'no', '16', '256', or '24bit']) ;;
+     esac
+     with_w32_vt_color=$val
+])
+
 dnl ARCH_INDEPENDENT_CONFIG_FILES(FILE...)
 dnl Like AC_CONFIG_FILES(FILE).  However, do not generate this
 dnl   if configure is being called recursively in preparation
@@ -3033,6 +3048,13 @@ if test "${opsys}" = "mingw32"; then
     AC_MSG_ERROR([the Windows API headers are too old to support this build.])
   fi
   HAVE_W32=${emacs_cv_w32api}
+  case "${with_w32_vt_color}" in
+       16 ) AC_DEFINE(USE_W32CONVTCOLOR_16, 1, [Define to use VT sequences for 16 colors.]) ;;
+       256 ) AC_DEFINE(USE_W32CONVTCOLOR_256, 1, [Define to use VT sequences for 256 colors.]) ;;
+       24bit ) AC_DEFINE(USE_W32CONVTCOLOR_24BIT, 1, [Define to use VT sequences for 24bit colors.]) ;;
+       no ) ;;
+       * ) ;;
+  esac
 fi
 
 NTDIR=

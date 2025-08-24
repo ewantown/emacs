@@ -4686,7 +4686,17 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
      don't think we're losing anything by turning it off.  */
   tty->line_ins_del_ok = 0;
 
-  tty->TN_max_colors = 16;  /* Must be non-zero for tty-display-color-p.  */
+  /* Support full range of colors in new windows terminal app */
+  #if defined(USE_W32CONVTCOLOR_16)
+    tty->TN_max_colors = 16;
+  #elif defined(USE_W32CONVTCOLOR_256)
+    tty->TN_max_colors = 256;
+  #elif defined(USE_W32CONVTCOLOR_24BIT)
+    tty->TN_max_colors = 16777216;
+  #else
+    /* Must be non-zero for tty-display-color-p.  */
+    tty->TN_max_colors = 16;
+  #endif
 #endif	/* DOS_NT */
 
 #ifdef HAVE_GPM
