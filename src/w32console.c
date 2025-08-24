@@ -745,6 +745,7 @@ w32_face_attributes (struct frame *f, int face_id)
   return char_attr;
 }
 
+/* Translate face attributes into VT sequences, then write. */
 static void
 turn_on_face (struct frame *f, int face_id)
 {
@@ -754,12 +755,13 @@ turn_on_face (struct frame *f, int face_id)
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD r;
   DWORD n = 0;
-  int sz = 256;
+  size_t sz = 256;
   char p[sz];
+  sz--;
 
-  // Store cursor position and hide cursor as WriteConsole advances
-  n += snprintf (p + n, sz - n, "[%dm", 7); // save position
-  n += snprintf (p + n, sz - n, "%s", "[?25h"); // hide
+  // Save cursor position and hide cursor as WriteConsole advances
+  n += snprintf (p + n, sz - n, "%s", "[7"); /* save position */
+  n += snprintf (p + n, sz - n, "%s", "[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
     n += snprintf (p + n, sz - n, "[%dm", 1);
@@ -797,6 +799,7 @@ turn_on_face (struct frame *f, int face_id)
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
 
+/*  */
 static void
 turn_off_face (struct frame *f, int face_id)
 {
@@ -805,15 +808,16 @@ turn_off_face (struct frame *f, int face_id)
   DWORD r;
   DWORD n = 0;
   int sz = 32;
-  char p[sz];  
+  char p[sz];
+  sz--;
 
-  n += snprintf (p, sz - n, "[%dm", 0); // restore default faces
-  n += snprintf (p, sz - n, "[%dm", 0); // restore cursor position
+  n += snprintf (p, sz - n, "[%dm", 0); /* restore default faces */
+  n += snprintf (p, sz - n, "[8");      /* restore cursor position */
 
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   if (console_cursor_info.bVisible)
-    n += snprintf (p, sz - n, "%s", "[?25h"); // show
-  
+    n += snprintf (p, sz - n, "%s", "[?25h"); /* show cursor */
+
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
 
