@@ -53,10 +53,8 @@ static void w32con_set_terminal_modes (struct terminal *t);
 static void w32con_update_begin (struct frame * f);
 static void w32con_update_end (struct frame * f);
 static WORD w32_face_attributes (struct frame *f, int face_id);
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
-#endif
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
@@ -71,7 +69,6 @@ static CONSOLE_CURSOR_INFO prev_console_cursor;
 extern HANDLE  keyboard_handle;
 HANDLE  keyboard_handle;
 int w32_console_unicode_input;
-
 
 /* Setting this as the ctrl handler prevents emacs from being killed when
    someone hits ^C in a 'suspended' session (child shell).
@@ -313,11 +310,7 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 		     register int len)
 {
   DWORD r;
-
-  #if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-  #else
   WORD char_attr;
-  #endif
   LPCSTR conversion_buffer;
   struct coding_system *coding;
 
@@ -348,60 +341,49 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	      && string[n].frame == face_id_frame))
 	  break;
 
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
+      if (w32_use_virtual_terminal_sequences)
 	turn_on_face (f, face_id);
-#else
+      else
+	{
 	/* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
 	struct frame *attr_frame = face_id_frame ? face_id_frame : f;
 
 	/* Turn appearance modes of the face of the run on.  */
 	char_attr = w32_face_attributes (attr_frame, face_id);
-#endif
+	}
 
       if (n == len)
 	/* This is the last run.  */
 	coding->mode |= CODING_MODE_LAST_BLOCK;
+
       conversion_buffer = (LPCSTR) encode_terminal_code (string, n, coding);
+
       if (coding->produced > 0)
 	{
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-	  if (!WriteConsole (cur_screen, conversion_buffer,
-			     coding->produced, &r, NULL))
+	  if (w32_use_virtual_terminal_sequences)
 	    {
-	      printf ("Failed writing console characters: %lu\n",
-		      GetLastError ());
-	      fflush (stdout);
+	      WriteConsole (cur_screen, conversion_buffer,
+			    coding->produced, &r, NULL);
 	    }
-#else
-	  /* Set the attribute for these characters.  */
-	  if (!FillConsoleOutputAttribute (cur_screen, char_attr,
+	  else
+	    {
+	      /* Set the attribute for these characters.  */
+	      FillConsoleOutputAttribute (cur_screen, char_attr,
+					  coding->produced, cursor_coords,
+					  &r);
+	      /* Write the characters.  */
+	      WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
 					   coding->produced, cursor_coords,
-					   &r))
-	    {
-	      printf ("Failed writing console attributes: %lu\n",
-		      GetLastError ());
-	      fflush (stdout);
+					   &r);
 	    }
-
-	  /* Write the characters.  */
-	  if (!WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
-					    coding->produced, cursor_coords,
-					    &r))
-	    {
-	      printf ("Failed writing console characters: %lu\n",
-		      GetLastError ());
-	      fflush (stdout);
-	    }
-#endif
 	  cursor_coords.X += coding->produced;
 	  w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
 	}
       len -= n;
       string += n;
 
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-      turn_off_face (f, face_id);
-#endif
+      if (w32_use_virtual_terminal_sequences)
+	turn_off_face (f, face_id);
     }
 }
 
@@ -595,22 +577,20 @@ w32con_set_terminal_modes (struct terminal *t)
   /* If Quick Edit is enabled for the console, it will get in the way
      of receiving mouse events, so we disable it.  But leave the
      Insert Mode as it was set by the user.  */
-  DWORD new_console_mode
+  DWORD in_mode
     = ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT | ENABLE_EXTENDED_FLAGS;
   if ((prev_console_mode & ENABLE_INSERT_MODE) != 0)
     new_console_mode |= ENABLE_INSERT_MODE;
-  SetConsoleMode (keyboard_handle, new_console_mode);
+  SetConsoleMode (keyboard_handle, in_mode);
 
   /* Initialize input mode: interrupt_input off, no flow control, allow
      8 bit character input, standard quit char.  */
   Fset_input_mode (Qnil, Qnil, make_fixnum (2), Qnil);
 
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-  DWORD mode;
-  GetConsoleMode (cur_screen, &mode);
-  mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-  SetConsoleMode (cur_screen, mode);
-#endif
+  DWORD out_mode;
+  GetConsoleMode (cur_screen, &out_mode);
+  out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  w32_use_virtual_terminal_sequences = SetConsoleMode (cur_screen, out_mode);
 }
 
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
@@ -762,7 +742,6 @@ w32_face_attributes (struct frame *f, int face_id)
   return char_attr;
 }
 
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
 static void
 turn_on_face (struct frame *f, int face_id)
 {
@@ -864,7 +843,6 @@ turn_off_face (struct frame *f, int face_id)
       WriteConsole (cur_screen, "[39;49m", 8, &r, NULL);
     }
 }
-#endif
 
 /* The IME window is needed to receive the session notifications
    required to reset the low level keyboard hook state.  */
@@ -1102,14 +1080,10 @@ may be preferable when working directly at the console with a large
 scroll-back buffer.  */);
   w32_use_full_screen_buffer = 0;
 
-  DEFVAR_BOOL ("w32con-use-vt-color",
-		w32con_use_vt_color,
-		doc: /* Non-nil means w32console uses terminal sequences rather than w32 console API for color. */);
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-  w32con_use_vt_color = 1;
-#else
-  w32con_use_vt_color = 0;
-#endif
+  DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
+	       w32_use_virtual_terminal_sequences,
+	       doc: /* If non-nil w32 console uses terminal sequences for some output processing. */);
+  w32_use_virtual_terminal_sequences = 0;
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
