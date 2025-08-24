@@ -59,7 +59,6 @@ static void turn_off_face (struct frame *, int face_id);
 #endif
 
 static COORD	cursor_coords;
-static COORD	save_coords;
 static HANDLE	prev_screen, cur_screen;
 static WORD	char_attr_normal;
 static DWORD	prev_console_mode;
@@ -481,7 +480,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
 
   /* Remember current cursor coordinates so that we can restore
      them at the end.  */
-  save_coords = cursor_coords;
+  COORD save_coords = cursor_coords;
 
   /* If the root frame displays child frames, we cannot naively
      write to the terminal what the window thinks should be drawn.
@@ -624,18 +623,11 @@ w32con_set_terminal_modes (struct terminal *t)
 static void
 w32con_update_begin (struct frame * f)
 {
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-  save_coords = cursor_coords;
-  w32con_hide_cursor ();
-#endif
 }
 
 static void
 w32con_update_end (struct frame * f)
 {
-#if defined(USE_W32CONVTCOLOR_16) || defined(USE_W32CONVTCOLOR_256) || defined(USE_W32CONVTCOLOR_24BIT)
-  cursor_coords = save_coords;
-#endif
   SetConsoleCursorPosition (cur_screen, cursor_coords);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
@@ -782,73 +774,48 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long bg = face->background;
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD r;
+  DWORD n = 0;
+  int sz = 256;
+  char p[sz];
 
-  /* realize_tty_face in xfaces.c swaps the values of fg and bg if
-  face->tty_reverse_p. Adding the terminal sequence "[7m" here
-  swaps them back, and makes for a tricky little bug. Beware! */
+  // Store cursor position and hide cursor as WriteConsole advances
+  n += snprintf (p + n, sz - n, "[%dm", 7); // save position
+  n += snprintf (p + n, sz - n, "%s", "[?25h"); // hide
+
   if (face->tty_bold_p)
-    WriteConsole (cur_screen, "[1m", 4, &r, NULL);
+    n += snprintf (p + n, sz - n, "[%dm", 1);
   if (face->tty_italic_p)
-    WriteConsole (cur_screen, "[3m", 4, &r, NULL);
+    n += snprintf (p + n, sz - n, "[%dm", 3);
   if (face->tty_strike_through_p)
-    WriteConsole (cur_screen, "[9m", 4, &r, NULL);
+    n += snprintf (p + n, sz - n, "[%dm", 9);
   if (face->underline != 0) /* no support for multicolor glyphs now */
-    WriteConsole (cur_screen, "[4m", 4, &r, NULL);
+    n += snprintf (p + n, sz - n, "[%dm", 4);
+  /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
+     when face->tty_reverse_p. Adding the terminal sequence "[7m"
+     here swaps them back, and makes for a tricky little bug. */
 
-  if (tty->TN_max_colors > 0)
+  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
     {
-      if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
-	{
-	  if (fg >= 0 && fg < 8)
-	    {
-	      char p[10];
-	      snprintf(p, 10, "[%lum", fg + 30);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	  if (fg >= 8 && fg < 16)
-	    {
-	      char p[10];
-	      snprintf(p, 10, "[%lum", fg - 8 + 90);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	  if (fg >= 16 && fg < 256)
-	    {
-	      char p[20];
-	      snprintf(p, 20, "[38;5;%lum", fg);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	  if (bg >= 0 && bg < 8)
-	    {
-	      char p[10];
-	      snprintf(p, 10, "[%lum", bg + 40);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	  if (bg >= 8 && bg < 16)
-	    {
-	      char p[10];
-	      snprintf(p, 10, "[%lum", bg - 8 + 100);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	  if (bg>= 16 && bg < 256)
-	    {
-	      char p[20];
-	      snprintf(p, 20, "[48;5;%lum", bg);
-	      WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-	    }
-	}
-      else if (tty->TN_max_colors == 16777216)
-
-
-	{
-	  char p[30];
-	  snprintf(p, 30, "[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
-	  WriteConsole (cur_screen, p, strlen(p), &r, NULL);
-
-	  char q[30];
-	  snprintf(q, 30, "[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
-	  WriteConsole (cur_screen, q, strlen(q), &r, NULL);
-	}
+      if (fg >= 0 && fg < 8)
+	n += snprintf (p + n, sz - n, "[%lum", fg + 30);
+      if (fg >= 8 && fg < 16)
+	n += snprintf (p + n, sz - n, "[%lum", fg - 8 + 90);
+      if (fg >= 16 && fg < 256)
+	n += snprintf (p + n, sz - n, "[38;5;%lum", fg);
+      if (bg >= 0 && bg < 8)
+	n += snprintf (p + n, sz - n, "[%lum", bg + 40);
+      if (bg >= 8 && bg < 16)
+	n += snprintf (p + n, sz - n, "[%lum", bg - 8 + 100);
+      if (bg>= 16 && bg < 256)
+	n += snprintf (p + n, sz - n, "[48;5;%lum", bg);
     }
+  else if (tty->TN_max_colors == 16777216)
+    {
+      n += snprintf (p + n, sz - n, "[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
+      n += snprintf (p + n, sz - n, "[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
+    }
+
+  WriteConsole (cur_screen, p, n, &r, NULL);
 }
 
 static void
@@ -857,23 +824,18 @@ turn_off_face (struct frame *f, int face_id)
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD r;
+  DWORD n = 0;
+  int sz = 32;
+  char p[sz];  
 
-  if (face->tty_bold_p
-      || face->tty_italic_p
-      || face->tty_strike_through_p
-      || (face->underline != 0))
-    {
-      WriteConsole (cur_screen, "[m", 3, &r, NULL);
-    }
-  /* Switch back to default colors.  */
-  if (tty->TN_max_colors > 0
-      && ((face->foreground != FACE_TTY_DEFAULT_COLOR
-	   && face->foreground != FACE_TTY_DEFAULT_FG_COLOR)
-	  || (face->background != FACE_TTY_DEFAULT_COLOR
-	      && face->background != FACE_TTY_DEFAULT_BG_COLOR)))
-    {
-      WriteConsole (cur_screen, "[39;49m", 8, &r, NULL);
-    }
+  n += snprintf (p, sz - n, "[%dm", 0); // restore default faces
+  n += snprintf (p, sz - n, "[%dm", 0); // restore cursor position
+
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  if (console_cursor_info.bVisible)
+    n += snprintf (p, sz - n, "%s", "[?25h"); // show
+  
+  WriteConsole (cur_screen, p, n, &r, NULL);
 }
 #endif
 
