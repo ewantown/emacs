@@ -580,7 +580,7 @@ w32con_set_terminal_modes (struct terminal *t)
   DWORD in_mode
     = ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT | ENABLE_EXTENDED_FLAGS;
   if ((prev_console_mode & ENABLE_INSERT_MODE) != 0)
-    new_console_mode |= ENABLE_INSERT_MODE;
+    in_mode |= ENABLE_INSERT_MODE;
   SetConsoleMode (keyboard_handle, in_mode);
 
   /* Initialize input mode: interrupt_input off, no flow control, allow
