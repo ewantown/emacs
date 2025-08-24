@@ -4634,7 +4634,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TF_set_underline_color = "\x1b[58:2::%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%dm";
 
 #else /* DOS_NT */
-#ifdef WINDOWSNT
+#  ifdef WINDOWSNT
   {
     struct frame *f = XFRAME (selected_frame);
     int height, width;
@@ -4649,6 +4649,9 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     FRAME_HAS_HORIZONTAL_SCROLL_BARS (f) = 0;
     tty->char_ins_del_ok = 1;
     baud_rate = 19200;
+
+    /* 24bit RGB support in Windows (10+) Terminal and Console Host */
+    tty->TN_max_colors = 16777216;
   }
 #else  /* MSDOS */
   {
@@ -4686,17 +4689,6 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
      don't think we're losing anything by turning it off.  */
   tty->line_ins_del_ok = 0;
 
-  /* Support full range of colors in new windows terminal app */
-  #if defined(USE_W32CONVTCOLOR_16)
-    tty->TN_max_colors = 16;
-  #elif defined(USE_W32CONVTCOLOR_256)
-    tty->TN_max_colors = 256;
-  #elif defined(USE_W32CONVTCOLOR_24BIT)
-    tty->TN_max_colors = 16777216;
-  #else
-    /* Must be non-zero for tty-display-color-p.  */
-    tty->TN_max_colors = 16;
-  #endif
 #endif	/* DOS_NT */
 
 #ifdef HAVE_GPM
