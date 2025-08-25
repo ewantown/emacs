@@ -25,42 +25,44 @@
 ;;; Code:
 
 ;; W32 uses different color indexes than standard
-;; When using VT sequences for color, standardize
 (defvar w32-tty-standard-colors
-  (if w32-use-virtual-terminal-sequences
-      '(("black"          0     0     0     0)
-        ("red"            1 45568  8704  8704) ; FireBrick
-        ("green"          2  8704 35584  8704) ; ForestGreen
-        ("brown"          3 40960 20992 11520) ; Sienna
-        ("blue"           4     0     0 52480) ; MediumBlue
-        ("magenta"        5 35584     0 35584) ; DarkMagenta
-        ("cyan"           6     0 52736 53504) ; DarkTurquoise
-        ("lightgray"      7 48640 48640 48640) ; Gray
-        ("darkgray"       8 26112 26112 26112) ; Gray40
-        ("lightred"       9 65535     0     0) ; Red
-        ("lightgreen"    10     0 65535     0) ; Green
-        ("yellow"        11 65535 65535     0) ; Yellow
-        ("lightblue"     12     0     0 65535) ; Blue
-        ("lightmagenta"  13 65535     0 65535) ; Magenta
-        ("lightcyan"     14     0 65535 65535) ; Cyan
-        ("white"         15 65535 65535 65535))
-    '(("black"          0     0     0     0)
-      ("blue"           1     0     0 52480) ; MediumBlue
-      ("green"          2  8704 35584  8704) ; ForestGreen
-      ("cyan"           3     0 52736 53504) ; DarkTurquoise
-      ("red"            4 45568  8704  8704) ; FireBrick
-      ("magenta"        5 35584     0 35584) ; DarkMagenta
-      ("brown"          6 40960 20992 11520) ; Sienna
-      ("lightgray"      7 48640 48640 48640) ; Gray
-      ("darkgray"       8 26112 26112 26112) ; Gray40
-      ("lightblue"      9     0     0 65535) ; Blue
-      ("lightgreen"    10     0 65535     0) ; Green
-      ("lightcyan"     11     0 65535 65535) ; Cyan
-      ("lightred"      12 65535     0     0) ; Red
-      ("lightmagenta"  13 65535     0 65535) ; Magenta
-      ("yellow"        14 65535 65535     0) ; Yellow
-      ("white"         15 65535 65535 65535)))
-"A list of VGA console colors, their indices and 16-bit RGB values.")
+  '(("black"          0     0     0     0)
+    ("blue"           1     0     0 52480) ; MediumBlue
+    ("green"          2  8704 35584  8704) ; ForestGreen
+    ("cyan"           3     0 52736 53504) ; DarkTurquoise
+    ("red"            4 45568  8704  8704) ; FireBrick
+    ("magenta"        5 35584     0 35584) ; DarkMagenta
+    ("brown"          6 40960 20992 11520) ; Sienna
+    ("lightgray"      7 48640 48640 48640) ; Gray
+    ("darkgray"       8 26112 26112 26112) ; Gray40
+    ("lightblue"      9     0     0 65535) ; Blue
+    ("lightgreen"    10     0 65535     0) ; Green
+    ("lightcyan"     11     0 65535 65535) ; Cyan
+    ("lightred"      12 65535     0     0) ; Red
+    ("lightmagenta"  13 65535     0 65535) ; Magenta
+    ("yellow"        14 65535 65535     0) ; Yellow
+    ("white"         15 65535 65535 65535))  
+  "A list of VGA console colors, their indices and 16-bit RGB values.")
+
+;; When using VT sequences for color, use xterm-like indices
+(defvar w32-tty-virtual-terminal-base-colors
+  '(("black"          0     0     0     0)
+    ("red"            1 45568  8704  8704) ; FireBrick
+    ("green"          2  8704 35584  8704) ; ForestGreen
+    ("brown"          3 40960 20992 11520) ; Sienna
+    ("blue"           4     0     0 52480) ; MediumBlue
+    ("magenta"        5 35584     0 35584) ; DarkMagenta
+    ("cyan"           6     0 52736 53504) ; DarkTurquoise
+    ("lightgray"      7 48640 48640 48640) ; Gray
+    ("darkgray"       8 26112 26112 26112) ; Gray40
+    ("lightred"       9 65535     0     0) ; Red
+    ("lightgreen"    10     0 65535     0) ; Green
+    ("yellow"        11 65535 65535     0) ; Yellow
+    ("lightblue"     12     0     0 65535) ; Blue
+    ("lightmagenta"  13 65535     0 65535) ; Magenta
+    ("lightcyan"     14     0 65535 65535) ; Cyan
+    ("white"         15 65535 65535 65535))
+  "A list of VGA console colors, their indices and 16-bit RGB values.")
 
 (declare-function x-setup-function-keys "term/common-win" (frame))
 (declare-function get-screen-color "w32console.c" ())
@@ -68,8 +70,10 @@
 (declare-function w32-get-console-output-codepage "w32proc.c" ())
 
 (defun w32con-define-base-colors ()
-  "Defines base color space for w32"
-  (let* ((colors w32-tty-standard-colors)
+  "Defines base 16-color space for w32 console."
+  (let* ((colors (if w32-use-virtual-terminal-sequences
+                     w32-tty-virtual-terminal-base-colors
+                   w32-tty-standard-colors))
          (nbase (length colors))
          (color (car colors)))
     (progn (while colors
@@ -79,7 +83,7 @@
            nbase)))
 
 (defun w32con-define-256-colors ()
-  "Defines 256 color space"
+  "Defines 256-color space for w32 console."
   (let ((r 0) (b 0) (g 0)
         (n (- 256 (w32con-define-base-colors)))
         (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
@@ -101,7 +105,7 @@
       (setq n (1- n)))))
 
 (defun w32con-define-24bit-colors ()
-  "Defines 24 bit color space"
+  "Defines 24-bit color space for w32 console."
   (let ((i (w32con-define-base-colors)))
     (mapc (lambda (c) (unless (assoc (car c) w32-tty-standard-colors)
                    (tty-color-define (car c) i (cdr c))
