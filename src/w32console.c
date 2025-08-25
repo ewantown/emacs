@@ -389,6 +389,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 {
   LPCSTR conversion_buffer;
   struct coding_system *coding;
+  DWORD filled, written;
 
   if (len <= 0)
     return;
@@ -409,12 +410,11 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	{
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
-			coding->produced, &r, NULL);
+			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	}
       else
 	{
-	  DWORD filled, written;
 	  /* Compute the character attributes corresponding to the face.  */
 	  DWORD char_attr = w32_face_attributes (f, face_id);
 	  COORD start_coords;
