@@ -341,15 +341,13 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	      && string[n].frame == face_id_frame))
 	  break;
 
-      if (w32_use_virtual_terminal_sequences)
-	turn_on_face (f, face_id);
-      else
+      if (!w32_use_virtual_terminal_sequences)
 	{
-	/* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
-	struct frame *attr_frame = face_id_frame ? face_id_frame : f;
+	  /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
+	  struct frame *attr_frame = face_id_frame ? face_id_frame : f;
 
-	/* Turn appearance modes of the face of the run on.  */
-	char_attr = w32_face_attributes (attr_frame, face_id);
+	  /* Turn appearance modes of the face of the run on.  */
+	  char_attr = w32_face_attributes (attr_frame, face_id);
 	}
 
       if (n == len)
@@ -362,8 +360,10 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
+	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
+	      turn_off_face (f, face_id);
 	    }
 	  else
 	    {
@@ -381,9 +381,6 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	}
       len -= n;
       string += n;
-
-      if (w32_use_virtual_terminal_sequences)
-	turn_off_face (f, face_id);
     }
 }
 
@@ -811,8 +808,8 @@ turn_off_face (struct frame *f, int face_id)
   char p[sz];
   sz--;
 
-  n += snprintf (p, sz - n, "[%dm", 0); /* restore default faces */
-  n += snprintf (p, sz - n, "[8");      /* restore cursor position */
+  n += snprintf (p, sz - n, "[0m"); /* restore default faces */
+  n += snprintf (p, sz - n, "[8");  /* restore cursor position */
 
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   if (console_cursor_info.bVisible)
