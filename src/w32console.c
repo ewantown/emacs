@@ -305,6 +305,7 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
     }
 }
 
+
 static void
 w32con_write_glyphs (struct frame *f, register struct glyph *string,
 		     register int len)
@@ -341,14 +342,8 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	      && string[n].frame == face_id_frame))
 	  break;
 
-      if (!w32_use_virtual_terminal_sequences)
-	{
-	  /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
-	  struct frame *attr_frame = face_id_frame ? face_id_frame : f;
-
-	  /* Turn appearance modes of the face of the run on.  */
-	  char_attr = w32_face_attributes (attr_frame, face_id);
-	}
+      /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
+      struct frame *attr_frame = face_id_frame ? face_id_frame : f;
 
       if (n == len)
 	/* This is the last run.  */
@@ -367,6 +362,8 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	    }
 	  else
 	    {
+	      /* Turn appearance modes of the face of the run on.  */
+	      char_attr = w32_face_attributes (attr_frame, face_id);
 	      /* Set the attribute for these characters.  */
 	      FillConsoleOutputAttribute (cur_screen, char_attr,
 					  coding->produced, cursor_coords,
@@ -408,25 +405,29 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   conversion_buffer = (LPCSTR) encode_terminal_code (string, len, coding);
   if (coding->produced > 0)
     {
-      DWORD filled, written;
-      /* Compute the character attributes corresponding to the face.  */
-      DWORD char_attr = w32_face_attributes (f, face_id);
-      COORD start_coords;
-
-      start_coords.X = x;
-      start_coords.Y = y;
-      /* Set the attribute for these characters.  */
-      if (!FillConsoleOutputAttribute (cur_screen, char_attr,
-				       coding->produced, start_coords,
-				       &filled))
-	DebPrint (("Failed writing console attributes: %d\n", GetLastError ()));
+      if (w32_use_virtual_terminal_sequences)
+	{
+	  turn_on_face (f, face_id);
+	  WriteConsole (cur_screen, conversion_buffer,
+			coding->produced, &r, NULL);
+	  turn_off_face (f, face_id);
+	}
       else
 	{
+	  DWORD filled, written;
+	  /* Compute the character attributes corresponding to the face.  */
+	  DWORD char_attr = w32_face_attributes (attr_frame, face_id);
+	  COORD start_coords;
+	  start_coords.X = x;
+	  start_coords.Y = y;
+
+	  /* Set the attribute for these characters.  */
+	  FillConsoleOutputAttribute (cur_screen, char_attr,
+				      coding->produced, start_coords,
+				      &filled);
 	  /* Write the characters.  */
-	  if (!WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
-					    filled, start_coords, &written))
-	    DebPrint (("Failed writing console characters: %d\n",
-		       GetLastError ()));
+	  WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
+				       filled, start_coords, &written);
 	}
     }
 }
@@ -503,7 +504,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
 		  }
 		  break;
 
-		case DRAW_INVERSE_VIDEO: // see comment in turn_on_face
+		case DRAW_INVERSE_VIDEO: /* see comment in turn_on_face */
 		case DRAW_CURSOR:
 		case DRAW_IMAGE_RAISED:
 		case DRAW_IMAGE_SUNKEN:
@@ -756,9 +757,8 @@ turn_on_face (struct frame *f, int face_id)
   char p[sz];
   sz--;
 
-  // Save cursor position and hide cursor as WriteConsole advances
+  /* Save cursor position (WriteConsole advances it) */
   n += snprintf (p + n, sz - n, "\x1b[7"); /* save position */
-  // n += snprintf (p + n, sz - n, "\x1b[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
     n += snprintf (p + n, sz - n, "\x1b[%dm", 1);
@@ -809,10 +809,6 @@ turn_off_face (struct frame *f, int face_id)
 
   n += snprintf (p, sz - n, "\x1b[0m"); /* restore default faces */
   n += snprintf (p, sz - n, "\x1b[8");  /* restore cursor position */
-
-  //  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  // if (console_cursor_info.bVisible)
-  // 	 n += snprintf (p, sz - n, "\x1b[?25h"); /* show cursor */
 
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
