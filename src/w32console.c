@@ -142,43 +142,29 @@ w32con_show_cursor (void)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      w32con_write_vt_seq ("\x1b[2J");
-    }
-  else
-    {
-      w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
-      w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
-    }
+  w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
+  w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
 }
 
 /* Clear the frame.  */
 static void
 w32con_clear_frame (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      w32con_write_vt_seq ("\x1b[2J\x1b[3J");
-    }
-  else
-  {
-    COORD	     dest;
-    int        n;
-    DWORD      r;
-    CONSOLE_SCREEN_BUFFER_INFO info;
-
-    GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
-
-    /* Remember that the screen buffer might be wider than the window.  */
-    n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
-    dest.X = dest.Y = 0;
-
-    FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
-    FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
-
-    w32con_move_cursor (f, 0, 0);
-  }
+  COORD	     dest;
+  int        n;
+  DWORD      r;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  
+  GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
+  
+  /* Remember that the screen buffer might be wider than the window.  */
+  n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
+  dest.X = dest.Y = 0;
+  
+  FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
+  FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
+  
+  w32con_move_cursor (f, 0, 0);
 }
 
 
