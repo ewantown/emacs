@@ -87,7 +87,7 @@
   (let ((r 0) (b 0) (g 0)
         (n (- 256 (w32con-define-base-colors)))
         (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
-    (while (> n 24) ;; non-grey
+    (while (> n 24) ; non-grey
       (let ((i (- 256 n))
             (c (mapcar convert-to-16bit
                        (mapcar (lambda (x) (if (zerop x) 0 (+ (* x 40) 55)))
@@ -97,7 +97,7 @@
       (when (> b 5) (setq g (1+ g) b 0))
       (when (> g 5) (setq r (1+ r) g 0))
       (setq n (1- n)))
-    (while (> n 0) ;; all-grey
+    (while (> n 0) ; all-grey
       (let* ((i (- 256 n))
              (v (funcall convert-to-16bit (+ 8 (* (- 24 n) 10))))
              (c (list v v v)))

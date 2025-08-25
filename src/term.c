@@ -4643,8 +4643,6 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     
     /* 24bit RGB support in Windows (10+) Terminal and Console Host */
     tty->TN_max_colors = 16777216;
-    if (!w32_use_virtual_terminal_sequences)
-      tty->TN_max_colors = 16;
       
     FrameRows (tty) = height;
     FrameCols (tty) = width;
