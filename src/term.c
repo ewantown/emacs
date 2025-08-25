@@ -2207,7 +2207,7 @@ TERMINAL does not refer to a text terminal.  */)
   return make_fixnum (t ? t->display_info.tty->TN_max_colors : 0);
 }
 
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined DOS_NT && !defined HAVE_ANDROID || WINDOWSNT
 
 /* Declare here rather than in the function, as in the rest of Emacs,
    to work around an HPUX compiler bug (?). See
@@ -2312,7 +2312,7 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
     }
 }
 
-#endif /* !DOS_NT && !HAVE_ANDROID */
+#endif /* !DOS_NT && !HAVE_ANDROID || WINDOWSNT */
 
 char *
 tty_type_name (Lisp_Object terminal)
@@ -4640,7 +4640,12 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     int height, width;
 
     initialize_w32_display (terminal, &width, &height);
-
+    
+    /* 24bit RGB support in Windows (10+) Terminal and Console Host */
+    tty->TN_max_colors = 16777216;
+    if (!w32_use_virtual_terminal_sequences)
+      tty->TN_max_colors = 16;
+      
     FrameRows (tty) = height;
     FrameCols (tty) = width;
     tty->specified_window = height;
@@ -4649,9 +4654,6 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     FRAME_HAS_HORIZONTAL_SCROLL_BARS (f) = 0;
     tty->char_ins_del_ok = 1;
     baud_rate = 19200;
-
-    /* 24bit RGB support in Windows (10+) Terminal and Console Host */
-    tty->TN_max_colors = 16777216;
   }
 #else  /* MSDOS */
   {
