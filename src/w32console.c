@@ -758,7 +758,7 @@ turn_on_face (struct frame *f, int face_id)
 
   // Save cursor position and hide cursor as WriteConsole advances
   n += snprintf (p + n, sz - n, "[7"); /* save position */
-  n += snprintf (p + n, sz - n, "[?25l"); /* hide cursor */
+  // n += snprintf (p + n, sz - n, "[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
     n += snprintf (p + n, sz - n, "[%dm", 1);
