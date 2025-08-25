@@ -758,7 +758,8 @@ turn_on_face (struct frame *f, int face_id)
   sz--;
 
   /* Save cursor position (WriteConsole advances it) */
-  n += snprintf (p + n, sz - n, "\x1b[7"); /* save position */
+  n += snprintf (p + n, sz - n, "\x1b[7");    /* save position */
+  n += snprintf (p + n, sz - n, "\x1b[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
     n += snprintf (p + n, sz - n, "\x1b[%dm", 1);
@@ -772,27 +773,28 @@ turn_on_face (struct frame *f, int face_id)
      when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
      here swaps them back, and makes for a tricky little bug. */
 
-  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
-    {
-      if (fg >= 0 && fg < 8)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", fg + 30);
-      if (fg >= 8 && fg < 16)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", fg - 8 + 90);
-      if (fg >= 16 && fg < 256)
-	n += snprintf (p + n, sz - n, "\x1b[38;5;%lum", fg);
-      if (bg >= 0 && bg < 8)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", bg + 40);
-      if (bg >= 8 && bg < 16)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", bg - 8 + 100);
-      if (bg>= 16 && bg < 256)
-	n += snprintf (p + n, sz - n, "\x1b[48;5;%lum", bg);
-    }
-  else if (tty->TN_max_colors == 16777216)
-    {
-      n += snprintf (p + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
-      n += snprintf (p + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
-    }
-
+  if (!NILP (Vtty_defined_color_alist)) {
+    if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+      {
+	if (fg >= 0 && fg < 8)
+	  n += snprintf (p + n, sz - n, "\x1b[%lum", fg + 30);
+	if (fg >= 8 && fg < 16)
+	  n += snprintf (p + n, sz - n, "\x1b[%lum", fg - 8 + 90);
+	if (fg >= 16 && fg < 256)
+	  n += snprintf (p + n, sz - n, "\x1b[38;5;%lum", fg);
+	if (bg >= 0 && bg < 8)
+	  n += snprintf (p + n, sz - n, "\x1b[%lum", bg + 40);
+	if (bg >= 8 && bg < 16)
+	  n += snprintf (p + n, sz - n, "\x1b[%lum", bg - 8 + 100);
+	if (bg>= 16 && bg < 256)
+	  n += snprintf (p + n, sz - n, "\x1b[48;5;%lum", bg);
+      }
+    else if (tty->TN_max_colors == 16777216)
+      {
+	n += snprintf (p + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
+	n += snprintf (p + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
+      }
+  }
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
 
@@ -808,7 +810,10 @@ turn_off_face (struct frame *f, int face_id)
   sz--;
 
   n += snprintf (p, sz - n, "\x1b[0m"); /* restore default faces */
-  n += snprintf (p, sz - n, "\x1b[8");  /* restore cursor position */
+  n += snprintf (p, sz - n, "\x1b[8");	/* restore cursor position */
+  SetConsoleCursorPosition (cur_screen, cursor_coords);
+  if (!XWINDOW (selected_window)->cursor_off_p)
+      n += snprintf (p + n, sz - n, "\x1b[?25h"); /* show cursor */
 
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
