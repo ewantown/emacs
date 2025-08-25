@@ -96,8 +96,8 @@ w32con_move_cursor (struct frame *f, int row, int col)
 
   if (w32_use_virtual_terminal_sequences)
     {
-      char *seq;
-      sprintf(seq, "\x1b[%d;%dH", col, row);
+      char seq[32];
+      sprintf (seq, "\x1b[%d;%dH", col, row);
       w32con_write_vt_seq (seq);
     }
   else
