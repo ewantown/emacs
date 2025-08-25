@@ -56,6 +56,7 @@ static void w32con_update_end (struct frame * f);
 static WORD w32_face_attributes (struct frame *f, int face_id);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
+static void w32con_write_vt_seq (char *);
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
@@ -97,7 +98,7 @@ w32con_move_cursor (struct frame *f, int row, int col)
     {
       char *seq;
       sprintf(seq, "\x1b[%d;%dH", col, row);
-      w32con_write_vt_seq((LPCSTR) seq);
+      w32con_write_vt_seq (seq);
     }
   else
     {
@@ -112,7 +113,7 @@ w32con_hide_cursor (void)
 {
   if (w32_use_virtual_terminal_sequences)
     {
-      w32con_write_vt_seq("\x1b[?25l");
+      w32con_write_vt_seq ("\x1b[?25l");
     }
   else
     {
@@ -141,14 +142,14 @@ w32con_show_cursor (void)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32con_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences)
     {
       w32con_write_vt_seq ("\x1b[2J");
     }
   else
     {
       w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
-      w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y, - 1);
+      w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
     }
 }
 
@@ -344,11 +345,11 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 }
 
 static void
-w32con_write_vt_seq (LPCSTR seq)
+w32con_write_vt_seq (char *seq)
 {
   DWORD written;
   DWORD length = strlen (seq);
-  WriteConsole (current_buffer, seq, length, &written, NULL);
+  WriteConsole (current_buffer, (LPCSTR) seq, length, &written, NULL);
 }
 
 static void
@@ -839,7 +840,7 @@ turn_on_face (struct frame *f, int face_id)
 	n += snprintf (seq + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
       }
   }
-  w32con_write_vt_seq ((LPCSTR) seq);
+  w32con_write_vt_seq (seq);
 }
 
 static void
@@ -858,7 +859,7 @@ turn_off_face (struct frame *f, int face_id)
   if (!XWINDOW (selected_window)->cursor_off_p)
       n += snprintf (seq + n, sz - n, "\x1b[?25h"); /* show cursor */
 
-  w32con_write_vt_seq ((LPCSTR) seq);
+  w32con_write_vt_seq (seq);
 }
 
 /* The IME window is needed to receive the session notifications
