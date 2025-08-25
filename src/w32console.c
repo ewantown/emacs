@@ -416,7 +416,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	{
 	  DWORD filled, written;
 	  /* Compute the character attributes corresponding to the face.  */
-	  DWORD char_attr = w32_face_attributes (attr_frame, face_id);
+	  DWORD char_attr = w32_face_attributes (f, face_id);
 	  COORD start_coords;
 	  start_coords.X = x;
 	  start_coords.Y = y;
