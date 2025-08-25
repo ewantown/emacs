@@ -25,6 +25,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <config.h>
 
 #include <stdio.h>
+#include <string.h>
 #include <windows.h>
 
 #include "lisp.h"
@@ -92,54 +93,91 @@ w32con_move_cursor (struct frame *f, int row, int col)
   cursor_coords.X = col;
   cursor_coords.Y = row;
 
-  /* TODO: for multi-tty support, cur_screen should be replaced with a
-     reference to the terminal for this frame.  */
-  SetConsoleCursorPosition (cur_screen, cursor_coords);
+  if (w32_use_virtual_terminal_sequences)
+    {
+      char *seq;
+      sprintf(seq, "\x1b[%d;%dH", col, row);
+      w32con_write_vt_seq((LPCSTR) seq);
+    }
+  else
+    {
+      /* TODO: for multi-tty support, cur_screen should be replaced with a
+	 reference to the terminal for this frame.  */
+      SetConsoleCursorPosition (cur_screen, cursor_coords);
+    }
 }
 
 void
 w32con_hide_cursor (void)
 {
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;
-  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  if (w32_use_virtual_terminal_sequences)
+    {
+      w32con_write_vt_seq("\x1b[?25l");
+    }
+  else
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = FALSE;
+      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
 }
 
 void
 w32con_show_cursor (void)
 {
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;
-  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  if (w32_use_virtual_terminal_sequences)
+    {
+      w32con_write_vt_seq ("\x1b[?25h");
+    }
+  else
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = TRUE;
+      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
 }
 
 /* Clear from cursor to end of screen.  */
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
-  w32con_ins_del_lines (f, cursor_coords.Y, FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
+  if (w32con_use_virtual_terminal_sequences)
+    {
+      w32con_write_vt_seq ("\x1b[2J");
+    }
+  else
+    {
+      w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
+      w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y, - 1);
+    }
 }
 
 /* Clear the frame.  */
 static void
 w32con_clear_frame (struct frame *f)
 {
-  COORD	     dest;
-  int        n;
-  DWORD      r;
-  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (w32_use_virtual_terminal_sequences)
+    {
+      w32con_write_vt_seq ("\x1b[2J\x1b[3J");
+    }
+  else
+  {
+    COORD	     dest;
+    int        n;
+    DWORD      r;
+    CONSOLE_SCREEN_BUFFER_INFO info;
 
-  GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
+    GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
 
-  /* Remember that the screen buffer might be wider than the window.  */
-  n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
-  dest.X = dest.Y = 0;
+    /* Remember that the screen buffer might be wider than the window.  */
+    n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
+    dest.X = dest.Y = 0;
 
-  FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
-  FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
+    FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
+    FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
 
-  w32con_move_cursor (f, 0, 0);
+    w32con_move_cursor (f, 0, 0);
+  }
 }
 
 
@@ -305,6 +343,13 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
     }
 }
 
+static void
+w32con_write_vt_seq (LPCSTR seq)
+{
+  DWORD written;
+  DWORD length = strlen (seq);
+  WriteConsole (current_buffer, seq, length, &written, NULL);
+}
 
 static void
 w32con_write_glyphs (struct frame *f, register struct glyph *string,
@@ -606,7 +651,7 @@ w32con_update_begin (struct frame * f)
 static void
 w32con_update_end (struct frame * f)
 {
-  SetConsoleCursorPosition (cur_screen, cursor_coords);
+  w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
     w32con_show_cursor ();
@@ -751,24 +796,23 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
   struct tty_display_info *tty = FRAME_TTY (f);
-  DWORD r;
   DWORD n = 0;
   size_t sz = 256;
-  char p[sz];
+  char seq[sz];
   sz--;
 
   /* Save cursor position (WriteConsole advances it) */
-  n += snprintf (p + n, sz - n, "\x1b[7");    /* save position */
-  n += snprintf (p + n, sz - n, "\x1b[?25l"); /* hide cursor */
+  n += snprintf (seq + n, sz - n, "\x1b[7");    /* save position */
+  n += snprintf (seq + n, sz - n, "\x1b[?25l"); /* hide cursor */
 
   if (face->tty_bold_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 1);
+    n += snprintf (seq + n, sz - n, "\x1b[%dm", 1);
   if (face->tty_italic_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 3);
+    n += snprintf (seq + n, sz - n, "\x1b[%dm", 3);
   if (face->tty_strike_through_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 9);
+    n += snprintf (seq + n, sz - n, "\x1b[%dm", 9);
   if (face->underline != 0) /* no support for multicolor glyphs now */
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 4);
+    n += snprintf (seq + n, sz - n, "\x1b[%dm", 4);
   /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
      when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
      here swaps them back, and makes for a tricky little bug. */
@@ -777,25 +821,25 @@ turn_on_face (struct frame *f, int face_id)
     if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
       {
 	if (fg >= 0 && fg < 8)
-	  n += snprintf (p + n, sz - n, "\x1b[%lum", fg + 30);
+	  n += snprintf (seq + n, sz - n, "\x1b[%lum", fg + 30);
 	if (fg >= 8 && fg < 16)
-	  n += snprintf (p + n, sz - n, "\x1b[%lum", fg - 8 + 90);
+	  n += snprintf (seq + n, sz - n, "\x1b[%lum", fg - 8 + 90);
 	if (fg >= 16 && fg < 256)
-	  n += snprintf (p + n, sz - n, "\x1b[38;5;%lum", fg);
+	  n += snprintf (seq + n, sz - n, "\x1b[38;5;%lum", fg);
 	if (bg >= 0 && bg < 8)
-	  n += snprintf (p + n, sz - n, "\x1b[%lum", bg + 40);
+	  n += snprintf (seq + n, sz - n, "\x1b[%lum", bg + 40);
 	if (bg >= 8 && bg < 16)
-	  n += snprintf (p + n, sz - n, "\x1b[%lum", bg - 8 + 100);
+	  n += snprintf (seq + n, sz - n, "\x1b[%lum", bg - 8 + 100);
 	if (bg>= 16 && bg < 256)
-	  n += snprintf (p + n, sz - n, "\x1b[48;5;%lum", bg);
+	  n += snprintf (seq + n, sz - n, "\x1b[48;5;%lum", bg);
       }
     else if (tty->TN_max_colors == 16777216)
       {
-	n += snprintf (p + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
-	n += snprintf (p + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
+	n += snprintf (seq + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
+	n += snprintf (seq + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
       }
   }
-  WriteConsole (cur_screen, p, n, &r, NULL);
+  w32con_write_vt_seq ((LPCSTR) seq);
 }
 
 static void
@@ -803,19 +847,18 @@ turn_off_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
-  DWORD r;
   DWORD n = 0;
   int sz = 32;
-  char p[sz];
+  char seq[sz];
   sz--;
 
-  n += snprintf (p, sz - n, "\x1b[0m"); /* restore default faces */
-  n += snprintf (p, sz - n, "\x1b[8");	/* restore cursor position */
-  SetConsoleCursorPosition (cur_screen, cursor_coords);
-  if (!XWINDOW (selected_window)->cursor_off_p)
-      n += snprintf (p + n, sz - n, "\x1b[?25h"); /* show cursor */
+  n += snprintf (seq, sz - n, "\x1b[0m");     /* restore default faces */
+  n += snprintf (seq + n, sz - n, "\x1b[8");  /* restore cursor position */
 
-  WriteConsole (cur_screen, p, n, &r, NULL);
+  if (!XWINDOW (selected_window)->cursor_off_p)
+      n += snprintf (seq + n, sz - n, "\x1b[?25h"); /* show cursor */
+
+  w32con_write_vt_seq ((LPCSTR) seq);
 }
 
 /* The IME window is needed to receive the session notifications
