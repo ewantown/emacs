@@ -2207,7 +2207,7 @@ TERMINAL does not refer to a text terminal.  */)
   return make_fixnum (t ? t->display_info.tty->TN_max_colors : 0);
 }
 
-#if !defined DOS_NT && !defined HAVE_ANDROID || WINDOWSNT
+#if !defined DOS_NT && !defined HAVE_ANDROID
 
 /* Declare here rather than in the function, as in the rest of Emacs,
    to work around an HPUX compiler bug (?). See
@@ -2312,7 +2312,7 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
     }
 }
 
-#endif /* !DOS_NT && !HAVE_ANDROID || WINDOWSNT */
+#endif /* !DOS_NT && !HAVE_ANDROID */
 
 char *
 tty_type_name (Lisp_Object terminal)
