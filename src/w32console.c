@@ -796,7 +796,6 @@ turn_on_face (struct frame *f, int face_id)
   WriteConsole (cur_screen, p, n, &r, NULL);
 }
 
-/*  */
 static void
 turn_off_face (struct frame *f, int face_id)
 {

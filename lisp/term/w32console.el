@@ -27,7 +27,7 @@
 ;; W32 uses different color indexes than standard
 ;; When using VT sequences for color, standardize
 (defvar w32-tty-standard-colors
-  (if w3-use-virtual-terminal-sequences
+  (if w32-use-virtual-terminal-sequences
       '(("black"          0     0     0     0)
         ("red"            1 45568  8704  8704) ; FireBrick
         ("green"          2  8704 35584  8704) ; ForestGreen
