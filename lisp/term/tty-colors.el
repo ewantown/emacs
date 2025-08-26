@@ -764,8 +764,7 @@
     (auto . 0)
     (ansi8 . 8)
     (always . 8)
-    (yes . 8)
-    (24bit . 16777216))
+    (yes . 8))
   "An alist of supported standard tty color modes and their aliases.")
 
 (defun tty-color-alist (&optional _frame)

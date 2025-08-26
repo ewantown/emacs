@@ -1093,11 +1093,11 @@ scroll-back buffer.  */);
   DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
 		w32_use_virtual_terminal_sequences,
 		doc: /* If non-nil w32 console uses terminal sequences for some output processing.
-Non-nil is the default but the variable is set dynamically based on the capabilities of the terminal.
-It determines the number and indices of colors used for faces on the console, for backward compatibility.
-If the terminal cannot handle virtual terminal sequences, the update hook triggers recomputation of faces.
+The variable is set dynamically based on the capabilities of the terminal.
+It determines the number and indices of colors used for faces on the console.
+If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
 See `w32con-set-up-initial-frame-faces' */);
-  w32_use_virtual_terminal_sequences = 1;
+  w32_use_virtual_terminal_sequences = 0;
 
   /*
   DEFSYM (Qw32con_set_up_initial_frame_faces,
