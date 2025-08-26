@@ -136,7 +136,7 @@ static void
 w32con_clear_to_end (struct frame *f)
 {
   w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
-  w32con_ins_del_lines (f, cursor_coords.Y,FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
+  w32con_ins_del_lines (f, cursor_coords.Y, FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1);
 }
 
 /* Clear the frame.  */
@@ -630,7 +630,7 @@ w32con_update_begin (struct frame * f)
   if (!w32_use_virtual_terminal_sequences && tty->TN_max_colors > 16)
     {
       tty->TN_max_colors = 16;
-      safe_calln (Qw32con_set_up_initial_frame_faces);
+      /* safe_calln (Qw32con_set_up_initial_frame_faces); */
     }
 }
 
@@ -1099,9 +1099,10 @@ If the terminal cannot handle virtual terminal sequences, the update hook trigge
 See `w32con-set-up-initial-frame-faces' */);
   w32_use_virtual_terminal_sequences = 1;
 
+  /*
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
-
+  */
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);

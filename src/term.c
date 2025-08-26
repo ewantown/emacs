@@ -4662,7 +4662,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TF_set_underline_color = "\x1b[58:2::%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%dm";
 
 #else /* DOS_NT */
-#   ifdef WINDOWSNT
+#ifdef WINDOWSNT
   {
     struct frame *f = XFRAME (selected_frame);
     int height, width;
