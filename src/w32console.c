@@ -94,26 +94,19 @@ w32con_move_cursor (struct frame *f, int row, int col)
   cursor_coords.X = col;
   cursor_coords.Y = row;
 
-  if (w32_use_virtual_terminal_sequences)
-    {
-      char seq[32];
-      snprintf (seq, sizeof (seq), "\x1b[%d;%dH", col, row);
-      w32con_write_vt_seq (seq);
-    }
-  else
-    {
-      /* TODO: for multi-tty support, cur_screen should be replaced with a
-	 reference to the terminal for this frame.  */
-      SetConsoleCursorPosition (cur_screen, cursor_coords);
-    }
+  {
+    /* TODO: for multi-tty support, cur_screen should be replaced with a
+       reference to the terminal for this frame.  */
+    SetConsoleCursorPosition (cur_screen, cursor_coords);
+  }
 }
 
 void
-w32con_hide_cursor (void)
+w32con_hide_cursor (struct tty_display_info *tty)
 {
   if (w32_use_virtual_terminal_sequences)
     {
-      w32con_write_vt_seq ("\x1b[?25l");
+      w32con_write_vt_seq ((char *) tty->TS_cursor_invisible);
     }
   else
     {
@@ -124,11 +117,11 @@ w32con_hide_cursor (void)
 }
 
 void
-w32con_show_cursor (void)
+w32con_show_cursor (struct tty_display_info *tty)
 {
   if (w32_use_virtual_terminal_sequences)
     {
-      w32con_write_vt_seq ("\x1b[?25h");
+      w32con_write_vt_seq (tty->TS_cursor_visible);
     }
   else
     {
@@ -154,16 +147,16 @@ w32con_clear_frame (struct frame *f)
   int        n;
   DWORD      r;
   CONSOLE_SCREEN_BUFFER_INFO info;
-  
+
   GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
-  
+
   /* Remember that the screen buffer might be wider than the window.  */
   n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
   dest.X = dest.Y = 0;
-  
+
   FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
   FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
-  
+
   w32con_move_cursor (f, 0, 0);
 }
 
@@ -633,17 +626,24 @@ w32con_set_terminal_modes (struct terminal *t)
 static void
 w32con_update_begin (struct frame * f)
 {
+  struct tty_display_info *tty = FRAME_TTY (f);
+  if (!w32_use_virtual_terminal_sequences && tty->TN_max_colors > 16)
+    {
+      tty->TN_max_colors = 16;
+      safe_calln (Qw32con_set_up_initial_frame_faces);
+    }
 }
 
 static void
 w32con_update_end (struct frame * f)
 {
   w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
+  struct tty_display_info *tty = FRAME_TTY (f);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
-    w32con_show_cursor ();
+    w32con_show_cursor (tty);
   else
-    w32con_hide_cursor ();
+    w32con_hide_cursor (tty);
 }
 
 /***********************************************************************
@@ -788,44 +788,51 @@ turn_on_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  /* Save cursor position (WriteConsole advances it) */
-  n += snprintf (seq + n, sz - n, "\x1b[7");    /* save position */
-  n += snprintf (seq + n, sz - n, "\x1b[?25l"); /* hide cursor */
-
+  // n += snprintf (seq + n, sz - n, "\x1b[7");    /* save position? */
+  n += snprintf (seq + n, sz - n, tty->TS_cursor_invisible);
   if (face->tty_bold_p)
-    n += snprintf (seq + n, sz - n, "\x1b[%dm", 1);
+    n += snprintf (seq + n, sz - n, tty->TS_enter_bold_mode);
   if (face->tty_italic_p)
-    n += snprintf (seq + n, sz - n, "\x1b[%dm", 3);
+    n += snprintf (seq + n, sz - n, tty->TS_enter_italic_mode);
   if (face->tty_strike_through_p)
-    n += snprintf (seq + n, sz - n, "\x1b[%dm", 9);
-  if (face->underline != 0) /* no support for multicolor glyphs now */
-    n += snprintf (seq + n, sz - n, "\x1b[%dm", 4);
-  /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
+    n += snprintf (seq + n, sz - n, tty->TS_enter_strike_through_mode);
+  if (face->underline != 0)
+    n += snprintf (seq + n, sz - n, tty->TS_enter_underline_mode);
+
+  /* tty->TS_enter_reverse_mode = "\x1b[7m";
+     Note: realize_tty_face in xfaces.c swaps the values of fg and bg
      when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
      here swaps them back, and makes for a tricky little bug. */
 
-  if (!NILP (Vtty_defined_color_alist)) {
-    if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
-      {
-	if (fg >= 0 && fg < 8)
-	  n += snprintf (seq + n, sz - n, "\x1b[%lum", fg + 30);
-	if (fg >= 8 && fg < 16)
-	  n += snprintf (seq + n, sz - n, "\x1b[%lum", fg - 8 + 90);
-	if (fg >= 16 && fg < 256)
-	  n += snprintf (seq + n, sz - n, "\x1b[38;5;%lum", fg);
-	if (bg >= 0 && bg < 8)
-	  n += snprintf (seq + n, sz - n, "\x1b[%lum", bg + 40);
-	if (bg >= 8 && bg < 16)
-	  n += snprintf (seq + n, sz - n, "\x1b[%lum", bg - 8 + 100);
-	if (bg>= 16 && bg < 256)
-	  n += snprintf (seq + n, sz - n, "\x1b[48;5;%lum", bg);
-      }
-    else if (tty->TN_max_colors == 16777216)
-      {
-	n += snprintf (seq + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
-	n += snprintf (seq + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
-      }
-  }
+  if (!NILP (Vtty_defined_color_alist))
+    {
+      unsigned long fgv = -1, bgv = -1;
+      const char *set_fg = tty->TS_set_foreground;
+      const char *set_bg = tty->TS_set_background;
+      if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+	{
+	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
+	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+	    :   (fg >= 16 && fg < 256) ? fg
+	    : -1;
+	  if (fgv >= 0)
+	    n += snprintf (seq + n, sz - n, set_fg, fgv);
+
+	  bgv = (bg >= 0  && bg < 8)   ? bg + 40
+	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+	    :   (bg >= 16 && bg < 256) ? bg
+	    : -1;
+	  if (bgv >= 0)
+	    n += snprintf (seq + n, sz - n, set_bg, bgv);
+	}
+      else if (tty->TN_max_colors == 16777216)
+	{
+	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
+	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
+	  n += snprintf (seq + n, sz - n, set_fg, rf, gf, bf);
+	  n += snprintf (seq + n, sz - n, set_bg, rb, gb, bb);
+	}
+    }
   w32con_write_vt_seq (seq);
 }
 
@@ -839,12 +846,11 @@ turn_off_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  n += snprintf (seq, sz - n, "\x1b[0m");     /* restore default faces */
-  n += snprintf (seq + n, sz - n, "\x1b[8");  /* restore cursor position */
+  n += snprintf (seq, sz - n, tty->TS_exit_attribute_mode);
+  // n += snprintf (seq + n, sz - n, "\x1b[8");  /* restore position? */
 
   if (!XWINDOW (selected_window)->cursor_off_p)
-      n += snprintf (seq + n, sz - n, "\x1b[?25h"); /* show cursor */
-
+      n += snprintf (seq + n, sz - n, tty->TS_cursor_visible);
   w32con_write_vt_seq (seq);
 }
 
@@ -1086,8 +1092,15 @@ scroll-back buffer.  */);
 
   DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
 	       w32_use_virtual_terminal_sequences,
-	       doc: /* If non-nil w32 console uses terminal sequences for some output processing. */);
-  w32_use_virtual_terminal_sequences = 0;
+	       doc: /* If non-nil w32 console uses terminal sequences for some output processing.
+Non-nil is the default but the variable is set dynamically based on the capabilities of the terminal.
+It determines the number and indices of colors used for faces on the console, for backward compatibility.
+If the terminal cannot handle virtual terminal sequences, the update hook triggers recomputation of faces.
+See `w32con-set-up-initial-frame-faces' */);
+  w32_use_virtual_terminal_sequences = 1;
+
+  DEFSYM (Qw32con_set_up_initial_frame_faces,
+	  "w32con-set-up-initial-frame-faces");
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);

@@ -348,7 +348,7 @@ tty_hide_cursor (struct tty_display_info *tty)
     {
       tty->cursor_hidden = 1;
 #ifdef WINDOWSNT
-      w32con_hide_cursor ();
+      w32con_hide_cursor (tty);
 #else
       OUTPUT_IF (tty, tty->TS_cursor_invisible);
 #endif
@@ -365,11 +365,11 @@ tty_show_cursor (struct tty_display_info *tty)
     {
       tty->cursor_hidden = 0;
 #ifdef WINDOWSNT
-      w32con_show_cursor ();
+      w32con_show_cursor (tty);
 #else
       OUTPUT_IF (tty, tty->TS_cursor_normal);
       if (visible_cursor)
-        OUTPUT_IF (tty, tty->TS_cursor_visible);
+	OUTPUT_IF (tty, tty->TS_cursor_visible);
 #endif
     }
 }
@@ -2207,7 +2207,7 @@ TERMINAL does not refer to a text terminal.  */)
   return make_fixnum (t ? t->display_info.tty->TN_max_colors : 0);
 }
 
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined MSDOS && !defined HAVE_ANDROID
 
 /* Declare here rather than in the function, as in the rest of Emacs,
    to work around an HPUX compiler bug (?). See
@@ -2264,11 +2264,17 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
       default:
 	tty_default_color_capabilities (tty, 0);
 	break;
-      case 8:	/* 8 standard ANSI colors */
+      case 8: /* 8 standard ANSI colors */
+#ifdef WINDOWSNT
+	tty->TS_orig_pair = "\033[39m\033[49m";
+#else
 	tty->TS_orig_pair = "\033[0m";
 #ifdef TERMINFO
 	tty->TS_set_foreground = "\033[3%p1%dm";
 	tty->TS_set_background = "\033[4%p1%dm";
+#elif defined WINDOWSNT
+	tty->TS_set_foreground = "\033[%dm";
+	tty->TS_set_background = "\033[%dm";
 #else
 	tty->TS_set_foreground = "\033[3%dm";
 	tty->TS_set_background = "\033[4%dm";
@@ -2276,6 +2282,25 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty->TN_max_colors = 8;
 	tty->TN_no_color_video = 0;
 	break;
+#ifdef WINDOWSNT
+      case 16:
+	tty->TS_set_foreground = "\033[%dm";
+	tty->TS_set_background = "\033[%dm";
+	tty->TN_max_colors = 16;
+	tty->TN_no_color_video = 0;
+      case 256:
+	tty->TN_max_colors = 256;
+	tty->TS_set_foreground = "\033[38;5;%dm";
+	tty->TS_set_background = "\033[48;5;%dm";
+	tty->TN_no_color_video = 0;
+	break;
+      case 16777216:
+	tty->TN_max_colors = 16777216;
+	tty->TS_set_foreground = "\033[38;2;%lu;%lu;%lum";
+	tty->TS_set_background = "\033[48;2;%lu;%lu;%lum";
+	tty->TN_no_color_video = 0;
+	break;
+#endif
     }
 }
 
@@ -2307,12 +2332,12 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
     {
       tty->previous_color_mode = mode;
       tty_setup_colors (tty , mode);
-      /*  This recomputes all the faces given the new color definitions.  */
+      /*  This recomputes all the faces given the new color definitions. */
       safe_calln (Qtty_set_up_initial_frame_faces);
     }
 }
 
-#endif /* !DOS_NT && !HAVE_ANDROID */
+#endif /* !MSDOS && !HAVE_ANDROID */
 
 char *
 tty_type_name (Lisp_Object terminal)
@@ -4634,16 +4659,30 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TF_set_underline_color = "\x1b[58:2::%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%dm";
 
 #else /* DOS_NT */
-#  ifdef WINDOWSNT
+#   ifdef WINDOWSNT
   {
     struct frame *f = XFRAME (selected_frame);
     int height, width;
 
-    initialize_w32_display (terminal, &width, &height);
-    
     /* 24bit RGB support in Windows (10+) Terminal and Console Host */
     tty->TN_max_colors = 16777216;
-      
+    tty->TS_orig_pair = "\x1b[39m\x1b[49m";
+    tty->TS_set_foreground = "\x1b[38;2;%lu;%lu;%lum";
+    tty->TS_set_foreground = "\x1b[48;2;%lu;%lu;%lum";
+
+    /* Save default color capabilities */
+    tty_default_color_capabilities (tty, 1);
+
+    tty->TS_enter_bold_mode = "\x1b[1m";
+    tty->TS_enter_italic_mode = "\x1b[3m";
+    tty->TS_enter_strike_through_mode = "\x1b[9m";
+    tty->TS_enter_underline_mode = "\x1b[4m";
+    tty->TS_exit_underline_mode = "\x1b[24m";
+    tty->TS_enter_reverse_mode = "\x1b[7m";
+    tty->TS_exit_attribute_mode = "\x1b[0m";
+
+    initialize_w32_display (terminal, &width, &height);
+
     FrameRows (tty) = height;
     FrameCols (tty) = width;
     tty->specified_window = height;
