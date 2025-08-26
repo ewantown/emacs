@@ -369,7 +369,7 @@ tty_show_cursor (struct tty_display_info *tty)
 #else
       OUTPUT_IF (tty, tty->TS_cursor_normal);
       if (visible_cursor)
-	OUTPUT_IF (tty, tty->TS_cursor_visible);
+        OUTPUT_IF (tty, tty->TS_cursor_visible);
 #endif
     }
 }

@@ -1082,8 +1082,8 @@ void
 syms_of_ntterm (void)
 {
   DEFVAR_BOOL ("w32-use-full-screen-buffer",
-	       w32_use_full_screen_buffer,
-	       doc: /* Non-nil means make terminal frames use the full screen buffer dimensions.
+		w32_use_full_screen_buffer,
+		doc: /* Non-nil means make terminal frames use the full screen buffer dimensions.
 This is desirable when running Emacs over telnet.
 A value of nil means use the current console window dimensions; this
 may be preferable when working directly at the console with a large
@@ -1091,8 +1091,8 @@ scroll-back buffer.  */);
   w32_use_full_screen_buffer = 0;
 
   DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
-	       w32_use_virtual_terminal_sequences,
-	       doc: /* If non-nil w32 console uses terminal sequences for some output processing.
+		w32_use_virtual_terminal_sequences,
+		doc: /* If non-nil w32 console uses terminal sequences for some output processing.
 Non-nil is the default but the variable is set dynamically based on the capabilities of the terminal.
 It determines the number and indices of colors used for faces on the console, for backward compatibility.
 If the terminal cannot handle virtual terminal sequences, the update hook triggers recomputation of faces.

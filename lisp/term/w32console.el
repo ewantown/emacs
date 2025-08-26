@@ -131,6 +131,7 @@
       ;; Since we changed the terminal encoding, we need to repeat
       ;; the test for Unicode quotes being displayable.
       (startup--setup-quote-display)))
+  (w32con-set-up-initial-frame-faces)
   (run-hooks 'terminal-init-w32-hook))
 
 (defun w32con-set-up-initial-frame-faces ()
