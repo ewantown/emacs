@@ -323,7 +323,7 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 }
 
 static void
-w32con_write_vt_seq (char *seq, DWORD len)
+w32con_write_vt_seq (char *seq)
 {
   char buf[256]; /* limit on sequences */
   DWORD length = snprintf(buf, 255, seq);
