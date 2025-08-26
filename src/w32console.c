@@ -25,7 +25,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <config.h>
 
 #include <stdio.h>
-#include <string.h>
 #include <windows.h>
 
 #include "lisp.h"
@@ -324,10 +323,12 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 }
 
 static void
-w32con_write_vt_seq (char *seq)
+w32con_write_vt_seq (char *seq, DWORD len)
 {
+  char buf[256]; /* limit on sequences */
+  DWORD length = snprintf(buf, 255, seq);
   DWORD written;
-  DWORD length = strlen (seq);
+
   WriteConsole (current_buffer, (LPCSTR) seq, length, &written, NULL);
 }
 
