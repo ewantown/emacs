@@ -2288,6 +2288,7 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty->TS_set_background = "\033[%dm";
 	tty->TN_max_colors = 16;
 	tty->TN_no_color_video = 0;
+	break;
       case 256:
 	tty->TN_max_colors = 256;
 	tty->TS_set_foreground = "\033[38;5;%dm";
