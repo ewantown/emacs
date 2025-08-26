@@ -2269,10 +2269,10 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty->TS_orig_pair = "\033[39m\033[49m";
 #else
 	tty->TS_orig_pair = "\033[0m";
-#if defined TERMINFO
+#ifdef TERMINFO
 	tty->TS_set_foreground = "\033[3%p1%dm";
 	tty->TS_set_background = "\033[4%p1%dm";
-#elif defined WINDOWSNT
+#ifdef WINDOWSNT
 	tty->TS_set_foreground = "\033[%dm";
 	tty->TS_set_background = "\033[%dm";
 #else
