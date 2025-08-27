@@ -804,7 +804,7 @@ turn_on_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  // SSPRINTF (seq, &n, sz, "\x1b[7", NULL); /* save position? */
+  // SSPRINTF (seq, &n, sz, "[7", NULL); /* save position? */
   SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
@@ -815,10 +815,10 @@ turn_on_face (struct frame *f, int face_id)
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
 
-  /* tty->TS_enter_reverse_mode = "\x1b[7m";
+  /* tty->TS_enter_reverse_mode = "[7m";
      Note: realize_tty_face in xfaces.c swaps the values of fg and bg
-     when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
-     here swaps them back, and makes for a tricky little bug. */
+     when face->tty_reverse_p. Adding the terminal sequence here
+     swaps them back, and makes for a tricky little bug. */
 
   if (tty->TN_max_colors > 0)
     {
@@ -843,8 +843,6 @@ turn_on_face (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-	  set_fg = "[38;2;%lu;%lu;%lum"; // TODO delete
-	  set_bg = "[38;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
@@ -866,7 +864,7 @@ turn_off_face (struct frame *f, int face_id)
   sz--;
 
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
-  // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
+  // SSPRINTF (seq, &n, sz, "[8", NULL); /* restore position? */
 
   if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden)
     SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);

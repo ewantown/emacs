@@ -4671,23 +4671,25 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     struct frame *f = XFRAME (selected_frame);
     int height, width;
 
-    /* 24bit RGB support in Windows (10+) Terminal and Console Host */
+    /* 24bit RGB support in Windows (10+) Terminal and Console Host
+       Note: Windows interface appears to favor escape /literals/
+        <= C-q C-[ */
     tty->TN_no_color_video = 0;
     tty->TN_max_colors = 16777216;
-    tty->TS_orig_pair = "\x1b[39m\x1b[49m";
-    tty->TS_set_foreground = "\x1b[38;2;%lu;%lu;%lum";
-    tty->TS_set_foreground = "\x1b[48;2;%lu;%lu;%lum";
+    tty->TS_orig_pair = "[39m\x1b[49m";
+    tty->TS_set_foreground = "[38;2;%lu;%lu;%lum";
+    tty->TS_set_foreground = "[48;2;%lu;%lu;%lum";
 
     /* Save default color capabilities */
     tty_default_color_capabilities (tty, 1);
 
-    tty->TS_enter_bold_mode = "\x1b[1m";
-    tty->TS_enter_italic_mode = "\x1b[3m";
-    tty->TS_enter_strike_through_mode = "\x1b[9m";
-    tty->TS_enter_underline_mode = "\x1b[4m";
-    tty->TS_exit_underline_mode = "\x1b[24m";
-    tty->TS_enter_reverse_mode = "\x1b[7m";
-    tty->TS_exit_attribute_mode = "\x1b[0m";
+    tty->TS_enter_bold_mode = "[1m";
+    tty->TS_enter_italic_mode = "[3m";
+    tty->TS_enter_strike_through_mode = "[9m";
+    tty->TS_enter_underline_mode = "[4m";
+    tty->TS_exit_underline_mode = "[24m";
+    tty->TS_enter_reverse_mode = "[7m";
+    tty->TS_exit_attribute_mode = "[0m";
 
     initialize_w32_display (terminal, &width, &height);
 
