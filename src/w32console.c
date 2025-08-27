@@ -338,7 +338,7 @@ w32con_write_vt_seq (char *seq)
   SSPRINTF (buf, &length, 256, seq, NULL);
   DWORD written;
 
-  WriteConsole (current_buffer, (LPCSTR) seq, length, &written, NULL);
+  WriteConsole (current_buffer, (LPCSTR) buf, length, &written, NULL);
 }
 
 static void
@@ -1115,12 +1115,11 @@ The variable is set dynamically based on the capabilities of the terminal.
 It determines the number and indices of colors used for faces on the console.
 If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
 See `w32con-set-up-initial-frame-faces' */);
-  w32_use_virtual_terminal_sequences = 0;
+  w32_use_virtual_terminal_sequences = 1;
 
-  /*
-  DEFSYM (Qw32con_set_up_initial_frame_faces,
-	  "w32con-set-up-initial-frame-faces");
-  */
+  DEFSYM (Qw32_set_up_initial_frame_faces,
+	  "w32-set-up-initial-frame-faces");
+
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);
