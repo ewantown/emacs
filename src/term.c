@@ -2265,42 +2265,38 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty_default_color_capabilities (tty, 0);
 	break;
       case 8: /* 8 standard ANSI colors */
-#ifdef WINDOWSNT
-	tty->TS_orig_pair = "\033[39m\033[49m";
-#else
 	tty->TS_orig_pair = "\033[0m";
-#endif
+	tty->TS_set_foreground = "\033[3%dm";
+	tty->TS_set_background = "\033[4%dm";
 #ifdef TERMINFO
 	tty->TS_set_foreground = "\033[3%p1%dm";
 	tty->TS_set_background = "\033[4%p1%dm";
 #endif
 #ifdef WINDOWSNT
-	tty->TS_set_foreground = "\033[%dm";
-	tty->TS_set_background = "\033[%dm";
-#else
-	tty->TS_set_foreground = "\033[3%dm";
-	tty->TS_set_background = "\033[4%dm";
+	tty->TS_orig_pair = "[39m[49m";
+	tty->TS_set_foreground = "[%dm";
+	tty->TS_set_background = "[%dm";
 #endif
 	tty->TN_max_colors = 8;
 	tty->TN_no_color_video = 0;
 	break;
 #ifdef WINDOWSNT
       case 16:
-	tty->TS_set_foreground = "\033[%dm";
-	tty->TS_set_background = "\033[%dm";
+	tty->TS_set_foreground = "[%dm";
+	tty->TS_set_background = "[%dm";
 	tty->TN_max_colors = 16;
 	tty->TN_no_color_video = 0;
 	break;
       case 256:
 	tty->TN_max_colors = 256;
-	tty->TS_set_foreground = "\033[38;5;%dm";
-	tty->TS_set_background = "\033[48;5;%dm";
+	tty->TS_set_foreground = "[38;5;%dm";
+	tty->TS_set_background = "[48;5;%dm";
 	tty->TN_no_color_video = 0;
 	break;
       case 16777216:
 	tty->TN_max_colors = 16777216;
-	tty->TS_set_foreground = "\033[38;2;%lu;%lu;%lum";
-	tty->TS_set_background = "\033[48;2;%lu;%lu;%lum";
+	tty->TS_set_foreground = "[38;2;%lu;%lu;%lum";
+	tty->TS_set_background = "[48;2;%lu;%lu;%lum";
 	tty->TN_no_color_video = 0;
 	break;
 #endif
@@ -4676,7 +4672,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
         <= C-q C-[ */
     tty->TN_no_color_video = 0;
     tty->TN_max_colors = 16777216;
-    tty->TS_orig_pair = "[39m\x1b[49m";
+    tty->TS_orig_pair = "[39m[49m";
     tty->TS_set_foreground = "[38;2;%lu;%lu;%lum";
     tty->TS_set_foreground = "[48;2;%lu;%lu;%lum";
 
