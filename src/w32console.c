@@ -77,6 +77,12 @@ int w32_console_unicode_input;
 
 BOOL ctrl_c_handler (unsigned long);
 
+#define SSPRINTF(buf, i, sz, fmt, ...)					\
+  do {									\
+    if (fmt)								\
+      *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
+  } while (0)
+
 BOOL
 ctrl_c_handler (unsigned long type)
 {
@@ -784,12 +790,6 @@ w32_face_attributes (struct frame *f, int face_id)
 
   return char_attr;
 }
-
-#define SSPRINTF(buf, i, sz, fmt, ...)					\
-  do {									\
-    if (fmt)								\
-      *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
-  } while (0)
 
 /* Translate face attributes into VT sequences, then write. */
 static void
