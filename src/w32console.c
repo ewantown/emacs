@@ -843,6 +843,7 @@ turn_on_face (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
+	  if (!set_fg) set_fg = "\x1b[38;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
