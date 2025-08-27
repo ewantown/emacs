@@ -777,9 +777,9 @@ w32_face_attributes (struct frame *f, int face_id)
 }
 
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
-  do { 								\
+  do {									\
     if (fmt)								\
-      *i = snprintf(buf + *i, sz - *i, tmp, __VA_ARGS__);		\
+      *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
 /* Translate face attributes into VT sequences, then write. */
