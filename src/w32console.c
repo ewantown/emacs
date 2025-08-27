@@ -106,6 +106,7 @@ w32con_hide_cursor (struct tty_display_info *tty)
   if (w32_use_virtual_terminal_sequences)
     {
       w32con_write_vt_seq ((char *) tty->TS_cursor_invisible);
+      tty->cursor_hidden = 1;
     }
   else
     {
@@ -120,7 +121,8 @@ w32con_show_cursor (struct tty_display_info *tty)
 {
   if (w32_use_virtual_terminal_sequences)
     {
-      w32con_write_vt_seq (tty->TS_cursor_visible);
+      w32con_write_vt_seq ((char *) tty->TS_cursor_visible);
+      tty->cursor_hidden = 0;
     }
   else
     {
@@ -326,7 +328,8 @@ static void
 w32con_write_vt_seq (char *seq)
 {
   char buf[256]; /* limit on sequences */
-  DWORD length = snprintf(buf, 255, seq);
+  DWORD length = 0;
+  SSPRINTF (buf, &length, 256, seq, NULL);
   DWORD written;
 
   WriteConsole (current_buffer, (LPCSTR) seq, length, &written, NULL);
@@ -615,6 +618,8 @@ w32con_set_terminal_modes (struct terminal *t)
   GetConsoleMode (cur_screen, &out_mode);
   out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
   w32_use_virtual_terminal_sequences = SetConsoleMode (cur_screen, out_mode);
+  if (w32_use_virtual_terminal_sequences)
+    t->display_info.tty->cursor_hidden = 0;
 }
 
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
@@ -631,7 +636,11 @@ w32con_update_begin (struct frame * f)
   if (!w32_use_virtual_terminal_sequences && tty->TN_max_colors > 16)
     {
       tty->TN_max_colors = 16;
-      /* safe_calln (Qw32con_set_up_initial_frame_faces); */
+      /* safe_calln (Qw32con_set_up_initial_frame_faces);
+	 or... (if not re-indexing)
+	 Qtty-color-mode = 16;
+	 safe_calln (Qtty_set_up_initial_frame_faces);
+      */
     }
 }
 
@@ -857,7 +866,7 @@ turn_off_face (struct frame *f, int face_id)
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
   // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
 
-  if (!XWINDOW (selected_window)->cursor_off_p)
+  if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden)
     SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
 
   w32con_write_vt_seq (seq);

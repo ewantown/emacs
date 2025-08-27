@@ -143,8 +143,7 @@ display colors and the value of `w32-use-virtual-terminal-sequences'."
         (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
               ((= ncolors 265       (w32con-define-256-colors)))
               (t                    (w32con-define-base-colors))))
-    (progn (w32con-define-base-colors)
-           (set-frame-parameter nil 'tty-color-mode 16)))
+    (w32con-define-base-colors))
   (clear-face-cache)
   ;; Figure out what are the colors of the console window, and set up
   ;; the background-mode correspondingly.
