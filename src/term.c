@@ -5247,11 +5247,11 @@ non-nil to enable this optimization.  */);
   defsubr (&Stty_display_pixel_width);
   defsubr (&Stty_display_pixel_height);
 
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined MSDOS && !defined HAVE_ANDROID
   default_orig_pair = NULL;
   default_set_foreground = NULL;
   default_set_background = NULL;
-#endif /* !DOS_NT && !HAVE_ANDROID */
+#endif /* !MSDOS && !HAVE_ANDROID */
 
 #ifndef HAVE_ANDROID
   encode_terminal_src = NULL;
