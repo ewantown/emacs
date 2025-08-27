@@ -4668,6 +4668,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     int height, width;
 
     /* 24bit RGB support in Windows (10+) Terminal and Console Host */
+    tty->TN_no_color_video = 0;
     tty->TN_max_colors = 16777216;
     tty->TS_orig_pair = "\x1b[39m\x1b[49m";
     tty->TS_set_foreground = "\x1b[38;2;%lu;%lu;%lum";

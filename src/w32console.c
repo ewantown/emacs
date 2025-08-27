@@ -776,6 +776,12 @@ w32_face_attributes (struct frame *f, int face_id)
   return char_attr;
 }
 
+#define SSPRINTF(buf, i, sz, fmt, ...)					\
+  do { 								\
+    if (fmt)								\
+      *i = snprintf(buf + *i, sz - *i, tmp, __VA_ARGS__);		\
+  } while (0)
+
 /* Translate face attributes into VT sequences, then write. */
 static void
 turn_on_face (struct frame *f, int face_id)
@@ -789,23 +795,23 @@ turn_on_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  // n += snprintf (seq + n, sz - n, "\x1b[7");    /* save position? */
-  n += snprintf (seq + n, sz - n, tty->TS_cursor_invisible);
+  // SSPRINTF (seq, &n, sz, "\x1b[7", NULL); /* save position? */
+  SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
-    n += snprintf (seq + n, sz - n, tty->TS_enter_bold_mode);
+    SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
-    n += snprintf (seq + n, sz - n, tty->TS_enter_italic_mode);
+    SSPRINTF (seq, &n, sz, tty->TS_enter_italic_mode, NULL);
   if (face->tty_strike_through_p)
-    n += snprintf (seq + n, sz - n, tty->TS_enter_strike_through_mode);
+    SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL);
   if (face->underline != 0)
-    n += snprintf (seq + n, sz - n, tty->TS_enter_underline_mode);
+    SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
 
   /* tty->TS_enter_reverse_mode = "\x1b[7m";
      Note: realize_tty_face in xfaces.c swaps the values of fg and bg
      when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
      here swaps them back, and makes for a tricky little bug. */
 
-  if (!NILP (Vtty_defined_color_alist))
+  if (tty->TN_max_colors > 0)
     {
       unsigned long fgv = -1, bgv = -1;
       const char *set_fg = tty->TS_set_foreground;
@@ -817,24 +823,25 @@ turn_on_face (struct frame *f, int face_id)
 	    :   (fg >= 16 && fg < 256) ? fg
 	    : -1;
 	  if (fgv >= 0)
-	    n += snprintf (seq + n, sz - n, set_fg, fgv);
+	    SSPRINTF (seq, &n, sz, set_fg, fgv);
 
 	  bgv = (bg >= 0  && bg < 8)   ? bg + 40
 	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
 	    :   (bg >= 16 && bg < 256) ? bg
 	    : -1;
 	  if (bgv >= 0)
-	    n += snprintf (seq + n, sz - n, set_bg, bgv);
+	    SSPRINTF (seq, &n, sz, set_bg, bgv);
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
-	  n += snprintf (seq + n, sz - n, set_fg, rf, gf, bf);
-	  n += snprintf (seq + n, sz - n, set_bg, rb, gb, bb);
+	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
+	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
 	}
     }
-  w32con_write_vt_seq (seq);
+  if (n > 0)
+    w32con_write_vt_seq (seq);
 }
 
 static void
@@ -847,11 +854,12 @@ turn_off_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  n += snprintf (seq, sz - n, tty->TS_exit_attribute_mode);
-  // n += snprintf (seq + n, sz - n, "\x1b[8");  /* restore position? */
+  SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
+  // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
 
   if (!XWINDOW (selected_window)->cursor_off_p)
-      n += snprintf (seq + n, sz - n, tty->TS_cursor_visible);
+    SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
+
   w32con_write_vt_seq (seq);
 }
 
