@@ -344,8 +344,31 @@ w32con_write_vt_seq2 (char *seq)
 static void // TODO delete
 w32con_write_vt_seq (char *seq)
 {
-  DWORD written;
-  WriteConsole (current_buffer, (LPCSTR) seq, strlen (seq), &written, NULL);
+  DWORD written;  
+  if (seq == NULL)
+    {
+    WriteConsole (current_buffer, (LPCSTR) "NULL_SEQ", 8, &written, NULL);
+    }
+  else
+    {
+      // Check for null termination within the specified length
+      for (size_t i = 0; i < 500; i++)
+	{
+	  if (seq[i] == '\0')
+	    {
+	      if (i == 0)
+		{
+		  WriteConsole (current_buffer, "MT_SEQ", 6, &written, NULL);
+		}
+	      else
+		{
+		  WriteConsole (current_buffer, (LPCSTR) seq, strlen (seq), &written, NULL);
+		}	    
+	      return;
+	    }
+	}
+      WriteConsole (current_buffer, (LPCSTR) "BAD_SEQ", 7, &written, NULL);
+    }
 }
 
 static void
