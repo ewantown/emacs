@@ -98,6 +98,7 @@ ctrl_c_handler (unsigned long type)
 
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
+/* TODO - migrate to VT sequences */
 static void
 w32con_move_cursor (struct frame *f, int row, int col)
 {
