@@ -2336,7 +2336,7 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
       tty_setup_colors (tty , mode);
       /*  This recomputes all the faces given the new color definitions. */
 #ifdef WINDOWSNT
-      safe_calln (Qw32_set_up_initial_frame_faces);
+      safe_calln (Qw32con_set_up_initial_frame_faces);
 #else
       safe_calln (Qtty_set_up_initial_frame_faces);
 #endif
@@ -4670,6 +4670,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     struct frame *f = XFRAME (selected_frame);
     int height, width;
 
+    initialize_w32_display (terminal, &width, &height);
+
     /* 24bit RGB support in Windows (10+) Terminal and Console Host
        Note: Windows interface appears to favor escape /literals/
         <= C-q C-[ */
@@ -4677,7 +4679,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TN_max_colors = 16777216;
     tty->TS_orig_pair = "[39m[49m";
     tty->TS_set_foreground = "[38;2;%lu;%lu;%lum";
-    tty->TS_set_foreground = "[48;2;%lu;%lu;%lum";
+    tty->TS_set_background = "[48;2;%lu;%lu;%lum";
 
     /* Save default color capabilities */
     tty_default_color_capabilities (tty, 1);
@@ -4689,8 +4691,6 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TS_exit_underline_mode = "[24m";
     tty->TS_enter_reverse_mode = "[7m";
     tty->TS_exit_attribute_mode = "[0m";
-
-    initialize_w32_display (terminal, &width, &height);
 
     FrameRows (tty) = height;
     FrameCols (tty) = width;

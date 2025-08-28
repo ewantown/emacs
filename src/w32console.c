@@ -865,7 +865,7 @@ turn_on_face (struct frame *f, int face_id)
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
 	  set_fg = "[38;5;%dm"; // TODO delete
-	  set_bg = "[38;5;%dm"; // TODO delete 
+	  set_bg = "[48;5;%dm"; // TODO delete 
 	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
 	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 	    :   (fg >= 16 && fg < 256) ? fg
@@ -883,7 +883,7 @@ turn_on_face (struct frame *f, int face_id)
       else if (tty->TN_max_colors == 16777216)
 	{
 	  set_fg = "[38;2;%lu;%lu;%lum"; // TODO delete
-	  set_bg = "[38;2;%lu;%lu;%lum"; // TODO delete
+	  set_bg = "[48;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
