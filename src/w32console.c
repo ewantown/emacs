@@ -118,7 +118,7 @@ w32con_move_cursor (struct frame *f, int row, int col)
 }
 
 void
-w32con_hide_cursor (struct tty_display_info *tty)
+w32con_hide_cursor2 (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 1;
 
@@ -129,11 +129,11 @@ w32con_hide_cursor (struct tty_display_info *tty)
 }
 
 void
-w32con_hide_cursor2 (struct tty_display_info *tty)
+w32con_hide_cursor (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 1;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;  
+  console_cursor_info.bVisible = FALSE;
   
   if (w32_use_virtual_terminal_sequences)
     {
@@ -146,7 +146,7 @@ w32con_hide_cursor2 (struct tty_display_info *tty)
 }
 
 void
-w32con_show_cursor (struct tty_display_info *tty)
+w32con_show_cursor2 (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 0;
 
@@ -158,7 +158,7 @@ w32con_show_cursor (struct tty_display_info *tty)
 
 
 void
-w32con_show_cursor2 (struct tty_display_info *tty)
+w32con_show_cursor1 (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 0;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -473,12 +473,14 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
-	      w32con_write_vt_seq("\x1b[7"); /* save cursor */
+	      // w32con_write_vt_seq("\x1b[7"); /* save cursor */
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
-	      w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	      // w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	      cursor_coords.X += coding->produced;
+	      /* WriteConsole advances the cursor */
 	    }
 	  else
 	    {
@@ -492,9 +494,10 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	      WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
 					   coding->produced, cursor_coords,
 					   &r);
+
+	      cursor_coords.X += coding->produced;
+	      w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
 	    }
-	  cursor_coords.X += coding->produced;
-	  w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
 	}
       len -= n;
       string += n;
@@ -528,12 +531,13 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
     {
       if (w32_use_virtual_terminal_sequences)
 	{
-	  w32con_write_vt_seq("\x1b[7"); /* save cursor */
+	  // w32con_write_vt_seq("\x1b[7"); /* save cursor */
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
-	  w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	  // w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	  cursor_coords.X += coding->produced;
 	}
       else
 	{
@@ -931,18 +935,13 @@ static void
 turn_on_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
-  unsigned long fg = face->foreground;
-  unsigned long bg = face->background;
-  if (fg <= 0 && bg <= 0)
-    fg = fg_normal, bg = bg_normal;
-
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD n = 0;
   size_t sz = 512;
   char seq[sz];
   sz--;
 
-  SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
+  /* SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL); */
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
@@ -952,10 +951,18 @@ turn_on_face (struct frame *f, int face_id)
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
 
-  /* tty->TS_enter_reverse_mode = "\x1b[7m";
-     Note: realize_tty_face in xfaces.c swaps the values of fg and bg
-     when face->tty_reverse_p. Adding the terminal sequence here
-     swaps them back, and makes for a tricky little bug. */
+  unsigned long fg = face->foreground;
+  unsigned long bg = face->background;
+
+  if (fg <= 0 && bg <= 0) {
+    fg = fg_normal, bg = bg_normal;
+    if (face->tty_reverse_p)
+      SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
+  }
+  /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
+     when fg and bg are set and face->tty_reverse_p. Adding the
+     terminal sequence here swaps them back, which is no good.
+     But we still need to handle the reversal if they are not set */
 
   if (tty->TN_max_colors > 0)
     {
@@ -1020,8 +1027,9 @@ turn_off_face (struct frame *f, int face_id)
   sz--;
 
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
-  if (!(tty)->cursor_hidden)
-    SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
+
+  /* if (!XWINDOW (selected_window)->cursor_off_p) */
+  /*     SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL); */
 
   w32con_write_vt_seq (seq);
 }
