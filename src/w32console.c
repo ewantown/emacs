@@ -76,6 +76,8 @@ int w32_console_unicode_input;
 extern struct tty_display_info *current_tty;
 struct tty_display_info *current_tty = NULL;
 
+extern void tty_setup_colors (struct tty_display_info *tty, int mode);
+
 /* Setting this as the ctrl handler prevents emacs from being killed when
    someone hits ^C in a 'suspended' session (child shell).
    Also ignore Ctrl-Break signals.  */
@@ -927,7 +929,7 @@ turn_on_face2 (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  // SSPRINTF (seq, &n, sz, "[7", NULL); /* save position? */
+  // SSPRINTF (seq, &n, sz, "\x1b[7", NULL); /* save position? */
   SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
@@ -938,7 +940,7 @@ turn_on_face2 (struct frame *f, int face_id)
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
 
-  /* tty->TS_enter_reverse_mode = "[7m";
+  /* tty->TS_enter_reverse_mode = "\x1b[7m";
      Note: realize_tty_face in xfaces.c swaps the values of fg and bg
      when face->tty_reverse_p. Adding the terminal sequence here
      swaps them back, and makes for a tricky little bug. */
@@ -950,8 +952,8 @@ turn_on_face2 (struct frame *f, int face_id)
       const char *set_bg = tty->TS_set_background;
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
-	  set_fg = "[38;5;%dm"; // TODO delete
-	  set_bg = "[48;5;%dm"; // TODO delete 
+	  set_fg = "\x1b[38;5;%dm"; // TODO delete
+	  set_bg = "\x1b[48;5;%dm"; // TODO delete 
 	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
 	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 	    :   (fg >= 16 && fg < 256) ? fg
@@ -968,8 +970,8 @@ turn_on_face2 (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-	  set_fg = "[38;2;%lu;%lu;%lum"; // TODO delete
-	  set_bg = "[48;2;%lu;%lu;%lum"; // TODO delete
+	  set_fg = "\x1b[38;2;%lu;%lu;%lum"; // TODO delete
+	  set_bg = "\x1b[48;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
@@ -1010,7 +1012,7 @@ turn_off_face2 (struct frame *f, int face_id)
   sz--;
 
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
-  // SSPRINTF (seq, &n, sz, "[8", NULL); /* restore position? */
+  // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
 
   if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden)
     SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
