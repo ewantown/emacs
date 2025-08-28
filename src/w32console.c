@@ -1127,8 +1127,8 @@ See w32console.el and `tty-defined-color-alist' for mapping of indices
 to colors.  */)
   (void)
 {
-  return Fcons (make_fixnum fg_normal,
-		Fcons (make_fixnum bg_normal, Qnil));
+  return Fcons (make_fixnum (fg_normal),
+		Fcons (make_fixnum (bg_normal), Qnil));
 }
 
 DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
