@@ -2206,7 +2206,7 @@ TERMINAL does not refer to a text terminal.  */)
   return make_fixnum (t ? t->display_info.tty->TN_max_colors : 0);
 }
 
-#if !defined MSDOS && !defined HAVE_ANDROID
+#if !defined DOS_NT && !defined HAVE_ANDROID
 
 /* Declare here rather than in the function, as in the rest of Emacs,
    to work around an HPUX compiler bug (?). See
@@ -2271,34 +2271,34 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty->TS_set_foreground = "\033[3%p1%dm";
 	tty->TS_set_background = "\033[4%p1%dm";
 #endif
-#ifdef WINDOWSNT
-	tty->TS_orig_pair = "[39m[49m";
-	tty->TS_set_foreground = "[%dm";
-	tty->TS_set_background = "[%dm";
-#endif
+/* #ifdef WINDOWSNT */
+/* 	tty->TS_orig_pair = "[39m[49m"; */
+/* 	tty->TS_set_foreground = "[%dm"; */
+/* 	tty->TS_set_background = "[%dm"; */
+/* #endif */
 	tty->TN_max_colors = 8;
 	tty->TN_no_color_video = 0;
 	break;
-#ifdef WINDOWSNT
-      case 16:
-	tty->TS_set_foreground = "[%dm";
-	tty->TS_set_background = "[%dm";
-	tty->TN_max_colors = 16;
-	tty->TN_no_color_video = 0;
-	break;
-      case 256:
-	tty->TN_max_colors = 256;
-	tty->TS_set_foreground = "[38;5;%dm";
-	tty->TS_set_background = "[48;5;%dm";
-	tty->TN_no_color_video = 0;
-	break;
-      case 16777216:
-	tty->TN_max_colors = 16777216;
-	tty->TS_set_foreground = "[38;2;%lu;%lu;%lum";
-	tty->TS_set_background = "[48;2;%lu;%lu;%lum";
-	tty->TN_no_color_video = 0;
-	break;
-#endif
+/* #ifdef WINDOWSNT */
+/*       case 16: */
+/* 	tty->TS_set_foreground = "[%dm"; */
+/* 	tty->TS_set_background = "[%dm"; */
+/* 	tty->TN_max_colors = 16; */
+/* 	tty->TN_no_color_video = 0; */
+/* 	break; */
+/*       case 256: */
+/* 	tty->TN_max_colors = 256; */
+/* 	tty->TS_set_foreground = "[38;5;%dm"; */
+/* 	tty->TS_set_background = "[48;5;%dm"; */
+/* 	tty->TN_no_color_video = 0; */
+/* 	break; */
+/*       case 16777216: */
+/* 	tty->TN_max_colors = 16777216; */
+/* 	tty->TS_set_foreground = "[38;2;%lu;%lu;%lum"; */
+/* 	tty->TS_set_background = "[48;2;%lu;%lu;%lum"; */
+/* 	tty->TN_no_color_video = 0; */
+/* 	break; */
+/* #endif */
     }
 }
 
@@ -2331,11 +2331,11 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
       tty->previous_color_mode = mode;
       tty_setup_colors (tty , mode);
       /*  This recomputes all the faces given the new color definitions. */
-#ifdef WINDOWSNT
-      safe_calln (Qw32con_set_up_initial_frame_faces);
-#else
+/* #ifdef WINDOWSNT */
+/*       safe_calln (Qw32con_set_up_initial_frame_faces); */
+/* #else */
       safe_calln (Qtty_set_up_initial_frame_faces);
-#endif
+/* #endif */
     }
 }
 
