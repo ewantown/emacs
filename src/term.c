@@ -4678,7 +4678,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TS_set_background = "[48;2;%lu;%lu;%lum";
 
     /* Save default color capabilities */
-    tty_default_color_capabilities (tty, 1);
+    /* tty_default_color_capabilities (tty, 1); */
 
     tty->TS_enter_bold_mode = "[1m";
     tty->TS_enter_italic_mode = "[3m";
@@ -5250,7 +5250,7 @@ non-nil to enable this optimization.  */);
   defsubr (&Stty_display_pixel_width);
   defsubr (&Stty_display_pixel_height);
 
-#if !defined MSDOS && !defined HAVE_ANDROID
+#if !defined DOS_NT && !defined HAVE_ANDROID
   default_orig_pair = NULL;
   default_set_foreground = NULL;
   default_set_background = NULL;
