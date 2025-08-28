@@ -83,7 +83,7 @@ extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 BOOL ctrl_c_handler (unsigned long);
 
-#define SEQMAX 512; /* Arbitrary limit on VT sequence size */
+#define SEQMAX 512 /* Arbitrary limit on VT sequence size */
 
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
