@@ -114,15 +114,16 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (struct tty_display_info *tty)
 {
+  tty->cursor_hidden = 1;
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = FALSE;  
+  
   if (w32_use_virtual_terminal_sequences)
     {
       w32con_write_vt_seq ((char *) tty->TS_cursor_invisible);
-      tty->cursor_hidden = 1;
     }
   else
     {
-      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-      console_cursor_info.bVisible = FALSE;
       SetConsoleCursorInfo (cur_screen, &console_cursor_info);
     }
 }
@@ -130,15 +131,16 @@ w32con_hide_cursor (struct tty_display_info *tty)
 void
 w32con_show_cursor (struct tty_display_info *tty)
 {
+  tty->cursor_hidden = 0;
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = TRUE;  
+
   if (w32_use_virtual_terminal_sequences)
     {
       w32con_write_vt_seq ((char *) tty->TS_cursor_visible);
-      tty->cursor_hidden = 0;
     }
   else
     {
-      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-      console_cursor_info.bVisible = TRUE;
       SetConsoleCursorInfo (cur_screen, &console_cursor_info);
     }
 }
@@ -849,10 +851,81 @@ turn_on_face (struct frame *f, int face_id)
   size_t sz = 256;
   char seq[sz];
   sz--;
+  DWORD written;
+  
+  WriteConsole (current_buffer, "[?25l", 10, &written, NULL);
+  if (face->tty_bold_p)
+    WriteConsole (current_buffer, "[1m", 10, &written, NULL);
+  if (face->tty_italic_p)
+    WriteConsole (current_buffer, "[3m", 10, &written, NULL);
+  if (face->tty_strike_through_p)
+    WriteConsole (current_buffer, "[9m", 10, &written, NULL);
+  if (face->underline != 0)
+    WriteConsole (current_buffer, "[4m", 10, &written, NULL);
+
+  /* tty->TS_enter_reverse_mode = "[7m";
+     Note: realize_tty_face in xfaces.c swaps the values of fg and bg
+     when face->tty_reverse_p. Adding the terminal sequence here
+     swaps them back, and makes for a tricky little bug. */
+
+  if (!NILP (Vtty_defined_color_alist) && tty->TN_max_colors > 0)
+    {
+      unsigned long fgv = -1, bgv = -1;
+      const char *set_fg = tty->TS_set_foreground;
+      const char *set_bg = tty->TS_set_background;
+      if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+	{
+	  set_fg = "[38;5;%dm"; // TODO delete
+	  set_bg = "[48;5;%dm"; // TODO delete 
+	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
+	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+	    :   (fg >= 16 && fg < 256) ? fg
+	    : -1;
+	  if (fgv >= 0)
+	    snprintf(seq, 10, fg < 16 ? "[%lum" : "[38;5;%lum", fgv);
+	    WriteConsole (current_buffer, seq, 20, &written, NULL);
+
+	  bgv = (bg >= 0  && bg < 8)   ? bg + 40
+	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+	    :   (bg >= 16 && bg < 256) ? bg
+	    : -1;
+	  if (bgv >= 0)
+	    snprintf(seq, 10, bg < 16 ? "[%lum" : "[48;5;%lum", bgv);
+	    WriteConsole (current_buffer, seq, 20, &written, NULL);
+	}
+      else if (tty->TN_max_colors == 16777216)
+	{
+	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
+	  snprintf(seq, 20, "[38;2;%lu;%lu;%lum", rf, gf, bf);
+	  WriteConsole (current_buffer, seq, 20, &written, NULL);
+
+	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
+	  snprintf(seq, 20, "[48;2;%lu;%lu;%lum", rb, gb, bb);
+	  WriteConsole (current_buffer, seq, 20, &written, NULL);
+	}
+    }
+}
+
+/* TODO delete */
+static void
+turn_on_face2 (struct frame *f, int face_id)
+{
+  struct face *face = FACE_FROM_ID (f, face_id);
+  unsigned long fg = face->foreground;
+  unsigned long bg = face->background;
+  if (!fg && !bg)
+    fg = fg_normal, bg = bg_normal;
+
+  struct tty_display_info *tty = FRAME_TTY (f);
+  DWORD n = 0;
+  size_t sz = 256;
+  char seq[sz];
+  sz--;
 
   // SSPRINTF (seq, &n, sz, "[7", NULL); /* save position? */
   SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
+    WriteConsole ()
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_italic_mode, NULL);
@@ -903,8 +976,28 @@ turn_on_face (struct frame *f, int face_id)
     w32con_write_vt_seq (seq);
 }
 
+
 static void
 turn_off_face (struct frame *f, int face_id)
+{
+  struct face *face = FACE_FROM_ID (f, face_id);
+  struct tty_display_info *tty = FRAME_TTY (f);
+  DWORD n = 0;
+  int sz = 32;
+  char seq[sz];
+  sz--;
+  DWORD written;
+  
+  WriteConsole (current_buffer, "[0m", 8, &written, NULL);
+
+  if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden)
+    WriteConsole (current_buffer, "[?25h", 8, &written, NULL);
+
+  w32con_write_vt_seq (seq);
+}
+
+static void
+turn_off_face2 (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
