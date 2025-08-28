@@ -120,8 +120,11 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (struct tty_display_info *tty)
 {
+  tty->cursor_hidden = 1;
+
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;  
+  console_cursor_info.bVisible = FALSE;
+
   SetConsoleCursorInfo (cur_screen, &console_cursor_info);
 }
 
@@ -145,8 +148,11 @@ w32con_hide_cursor2 (struct tty_display_info *tty)
 void
 w32con_show_cursor (struct tty_display_info *tty)
 {
+  tty->cursor_hidden = 0;
+
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;  
+  console_cursor_info.bVisible = TRUE;
+
   SetConsoleCursorInfo (cur_screen, &console_cursor_info);
 }
 
@@ -368,12 +374,12 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 static void
 w32con_write_vt_seq (char *seq)
 {
-  char buf[256]; /* limit on sequences */
+  char buf[512]; /* limit on sequences */
   DWORD length = 0;
-  SSPRINTF (buf, &length, 256, seq, NULL);
+  SSPRINTF (buf, &length, 512, seq, NULL);
   DWORD written;
 
-  WriteConsole (current_buffer, (LPCSTR) buf, length, &written, NULL);
+  WriteConsoleA (current_buffer, (LPCSTR) buf, length, &written, NULL);
 }
 
 static void // TODO delete
@@ -467,10 +473,12 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
+	      w32con_write_vt_seq("\x1b[7"); /* save cursor */
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
+	      w32con_write_vt_seq("\x1b[8"); /* restore cursor */
 	    }
 	  else
 	    {
@@ -520,10 +528,12 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
     {
       if (w32_use_virtual_terminal_sequences)
 	{
+	  w32con_write_vt_seq("\x1b[7"); /* save cursor */
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
+	  w32con_write_vt_seq("\x1b[8"); /* restore cursor */
 	}
       else
 	{
@@ -923,17 +933,16 @@ turn_on_face (struct frame *f, int face_id)
   struct face *face = FACE_FROM_ID (f, face_id);
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
-  if (!fg && !bg)
+  if (fg <= 0 && bg <= 0)
     fg = fg_normal, bg = bg_normal;
 
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD n = 0;
-  size_t sz = 256;
+  size_t sz = 512;
   char seq[sz];
   sz--;
 
-  // SSPRINTF (seq, &n, sz, "\x1b[7", NULL); /* save position? */
-  // SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
+  SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
@@ -948,7 +957,7 @@ turn_on_face (struct frame *f, int face_id)
      when face->tty_reverse_p. Adding the terminal sequence here
      swaps them back, and makes for a tricky little bug. */
 
-  if (!NILP (Vtty_defined_color_alist) && tty->TN_max_colors > 0)
+  if (tty->TN_max_colors > 0)
     {
       unsigned long fgv = -1, bgv = -1;
       const char *set_fg = tty->TS_set_foreground;
@@ -1011,10 +1020,8 @@ turn_off_face (struct frame *f, int face_id)
   sz--;
 
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
-  // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
-
-  /* if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden) */
-  /*   SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL); */
+  if (!(tty)->cursor_hidden)
+    SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
 
   w32con_write_vt_seq (seq);
 }
@@ -1268,7 +1275,7 @@ The variable is set dynamically based on the capabilities of the terminal.
 It determines the number and indices of colors used for faces on the console.
 If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
 See `w32con-set-up-initial-frame-faces' */);
-  w32_use_virtual_terminal_sequences = 1;
+  w32_use_virtual_terminal_sequences = 0;
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
