@@ -73,8 +73,11 @@ static void clear_tty_hooks (struct terminal *terminal);
 static void set_tty_hooks (struct terminal *terminal);
 static void dissociate_if_controlling_tty (int fd);
 static void delete_tty (struct terminal *);
-
 #endif /* !HAVE_ANDROID */
+
+#if !defined MSDOS && !defined HAVE_ANDROID
+void tty_setup_colors (struct tty_display_info *tty, int mode);
+#endif
 
 static AVOID maybe_fatal (bool, struct terminal *, const char *, const char *,
 			  ...)
@@ -2246,7 +2249,7 @@ tty_default_color_capabilities (struct tty_display_info *tty, bool save)
    MODE's value is generally the number of colors which we want to
    support; zero means set up for the default capabilities, the ones
    we saw at init_tty time; -1 means turn off color support.  */
-static void
+void
 tty_setup_colors (struct tty_display_info *tty, int mode)
 {
   /* Canonicalize all negative values of MODE.  */

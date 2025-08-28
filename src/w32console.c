@@ -60,6 +60,8 @@ static void w32con_write_vt_seq (char *);
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
 static WORD	char_attr_normal;
+static WORD	bg_normal;
+static WORD	fg_normal;
 static DWORD	prev_console_mode;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
@@ -70,6 +72,9 @@ static CONSOLE_CURSOR_INFO prev_console_cursor;
 extern HANDLE  keyboard_handle;
 HANDLE  keyboard_handle;
 int w32_console_unicode_input;
+
+extern struct tty_display_info *current_tty;
+struct tty_display_info *current_tty = NULL;
 
 /* Setting this as the ctrl handler prevents emacs from being killed when
    someone hits ^C in a 'suspended' session (child shell).
@@ -147,6 +152,7 @@ w32con_clear_to_end (struct frame *f)
 }
 
 /* Clear the frame.  */
+/* TODO - migrate to VT sequences */
 static void
 w32con_clear_frame (struct frame *f)
 {
@@ -174,6 +180,7 @@ static size_t glyphs_len = ARRAYELTS (glyph_base);
 static BOOL  ceol_initialized = FALSE;
 
 /* Clear from Cursor to end (what's "standout marker"?).  */
+/* TODO - migrate to VT sequences */
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
@@ -202,6 +209,7 @@ w32con_clear_end_of_line (struct frame *f, int end)
 }
 
 /* Insert n lines at vpos. if n is negative delete -n lines.  */
+/* TODO - migrate to VT sequences */
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
@@ -275,6 +283,7 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 #define	LEFT	1
 #define	RIGHT	0
 
+/* TODO - migrate to VT sequences */
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
@@ -668,15 +677,12 @@ w32con_set_terminal_modes (struct terminal *t)
 static void
 w32con_update_begin (struct frame * f)
 {
-  struct tty_display_info *tty = FRAME_TTY (f);
-  if (!w32_use_virtual_terminal_sequences && tty->TN_max_colors > 16)
+  current_tty = FRAME_TTY (f);
+  if (!w32_use_virtual_terminal_sequences
+      && current_tty->TN_max_colors > 16)
     {
-      tty->TN_max_colors = 16;
-      /* safe_calln (Qw32con_set_up_initial_frame_faces);
-	 or... (if not re-indexing)
-	 Qtty-color-mode = 16;
-	 safe_calln (Qtty_set_up_initial_frame_faces);
-      */
+      tty_setup_colors (tty, 16);
+      safe_calln (Qw32con_set_up_initial_frame_faces);
     }
 }
 
@@ -716,8 +722,6 @@ sys_tgetstr (char *cap, char **area)
 			stubs from cm.c
  ***********************************************************************/
 
-extern struct tty_display_info *current_tty;
-struct tty_display_info *current_tty = NULL;
 extern int cost;
 int cost = 0;
 
@@ -828,6 +832,9 @@ turn_on_face (struct frame *f, int face_id)
   struct face *face = FACE_FROM_ID (f, face_id);
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
+  if (!fg && !bg)
+    fg = fg_normal, bg = bg_normal;
+
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD n = 0;
   size_t sz = 256;
@@ -850,7 +857,7 @@ turn_on_face (struct frame *f, int face_id)
      when face->tty_reverse_p. Adding the terminal sequence here
      swaps them back, and makes for a tricky little bug. */
 
-  if (tty->TN_max_colors > 0)
+  if (!NILP (Vtty_defined_color_alist) && tty->TN_max_colors > 0)
     {
       unsigned long fgv = -1, bgv = -1;
       const char *set_fg = tty->TS_set_foreground;
@@ -875,7 +882,6 @@ turn_on_face (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-
 	  set_fg = "[38;2;%lu;%lu;%lum"; // TODO delete
 	  set_bg = "[38;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
@@ -1039,6 +1045,8 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
     }
 
   char_attr_normal = info.wAttributes;
+  fg_normal = char_attr_normal & 0x000f;
+  bg_normal = (char_attr_normal >> 4) & 0x000f;
 
   /* Determine if the info returned by GetConsoleScreenBufferInfo
      is realistic.  Old MS Telnet servers used to only fill out
@@ -1101,12 +1109,16 @@ DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
 Arguments should be indices between 0 and 15, see w32console.el.  */)
   (Lisp_Object foreground, Lisp_Object background)
 {
-  char_attr_normal = XFIXNAT (foreground) + (XFIXNAT (background) << 4);
+
+  fg_normal = XFIXNAT (foreground);
+  bg_normal = XFIXNAT (background);
+  char_attr_normal = fg_normal + (bg_normal << 4);
 
   Frecenter (Qnil, Qt);
   return Qt;
 }
 
+/* TODO - migrate to VT sequences */
 DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 0, 0,
        doc: /* Get color indices of the current screen foreground and background.
 
@@ -1115,8 +1127,8 @@ See w32console.el and `tty-defined-color-alist' for mapping of indices
 to colors.  */)
   (void)
 {
-  return Fcons (make_fixnum (char_attr_normal & 0x000f),
-		Fcons (make_fixnum ((char_attr_normal >> 4) & 0x000f), Qnil));
+  return Fcons (make_fixnum fg_normal,
+		Fcons (make_fixnum bg_normal, Qnil));
 }
 
 DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
