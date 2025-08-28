@@ -1164,8 +1164,8 @@ If the terminal cannot handle VT sequences, the update hook triggers recomputati
 See `w32con-set-up-initial-frame-faces' */);
   w32_use_virtual_terminal_sequences = 1;
 
-  DEFSYM (Qw32_set_up_initial_frame_faces,
-	  "w32-set-up-initial-frame-faces");
+  DEFSYM (Qw32con_set_up_initial_frame_faces,
+	  "w32con-set-up-initial-frame-faces");
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
