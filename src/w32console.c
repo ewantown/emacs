@@ -158,7 +158,7 @@ w32con_show_cursor2 (struct tty_display_info *tty)
 
 
 void
-w32con_show_cursor1 (struct tty_display_info *tty)
+w32con_show_cursor (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 0;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
