@@ -998,13 +998,39 @@ turn_on_face (struct frame *f, int face_id)
 
   if (!w32con_write_vt_seq (seq)
       && (face->foreground != FACE_TTY_DEFAULT_COLOR
-	  || face->background != FACE_TTY_DEFAULT_COLOR))	   
+	  || face->background != FACE_TTY_DEFAULT_COLOR))
     {
-      printf ("Failed to write face\n");
+      int i = 0;
+      if (seq)
+	{
+	  if (seq[0] == '\0')
+	    {
+	      printf ("seq is empty string\n");
+	    }
+	  else
+	    while (i < SEQMAX && seq[i] != '\0')
+	      {
+		if (seq[i] == '\x1b')
+		  seq[i] = '#';
+	      }
+	}
+      else
+	{
+	  printf ("seq is null");
+	}
+      printf ("Failed to write face seq: %s \n", seq);
+      printf ("tty->TN_max_colors: %lu", tty->TN_max_colors);
+      printf ("Face: %d", face->id);
       if (!tty->TS_set_foreground)
 	printf ("TS_set_foreground not set for this tty\n");
+      else
+	printf ("TS_set_foreground: %s \n", tty->TS_set_foreground);
+	printf ("face->foreground: %lu \n", face->foreground);
       if (!tty->TS_set_background)
-	printf ("TS_set_background not set for this tty\n");	
+	printf ("TS_set_background not set for this tty\n");
+	printf ("face->background: %lu \n", face->foreground);
+      else
+	printf ("TS_set_background: %s \n", tty->TS_set_background);
       fflush (stdout);
       exit (1);
     }
