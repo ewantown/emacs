@@ -353,10 +353,20 @@ w32con_write_vt_seq2 (char *seq)
 static void // TODO delete
 w32con_write_vt_seq (char *seq)
 {
+  LPCSTR buffer;
+  struct coding_system *coding;
+  char string[16];
+  int length = 0;
+  
+  coding = (FRAME_TERMINAL_CODING (f)->common_flags & CODING_REQUIRE_ENCODING_MASK
+	    ? FRAME_TERMINAL_CODING (f) : &safe_terminal_coding);
+  coding->mode &= ~CODING_MODE_LAST_BLOCK;
+ 
   DWORD written;  
   if (seq == NULL)
     {
-    WriteConsole (current_buffer, (LPCSTR) "NULL_SEQ", 8, &written, NULL);
+      string = "NULL_SEQ";
+      length = 8;
     }
   else
     {
@@ -367,17 +377,21 @@ w32con_write_vt_seq (char *seq)
 	    {
 	      if (i == 0)
 		{
-		  WriteConsole (current_buffer, "MT_SEQ", 6, &written, NULL);
+		  string = "MT_SEQ";
+		  length = 6;		  
 		}
 	      else
 		{
-		  WriteConsole (current_buffer, (LPCSTR) seq, strlen (seq), &written, NULL);
+		  string = seq;
+		  length = strlen (seq);		  
 		}	    
 	      return;
 	    }
 	}
-      WriteConsole (current_buffer, (LPCSTR) "BAD_SEQ", 7, &written, NULL);
+      string = "BAD_SEQ";
+      length = 7;
     }
+  WriteConsole (current_buffer, (LPCSTR) string, length, &written, NULL);
 }
 
 static void
