@@ -354,12 +354,10 @@ static void // TODO delete
 w32con_write_vt_seq (char *seq)
 {
   LPCSTR buffer;
-  struct coding_system *coding;
-  char string[16];
+  struct coding_system *coding = &safe_terminal_coding;
+  char *string;
   int length = 0;
-  
-  coding = (FRAME_TERMINAL_CODING (f)->common_flags & CODING_REQUIRE_ENCODING_MASK
-	    ? FRAME_TERMINAL_CODING (f) : &safe_terminal_coding);
+
   coding->mode &= ~CODING_MODE_LAST_BLOCK;
  
   DWORD written;  
