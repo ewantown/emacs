@@ -58,7 +58,7 @@ static void w32con_update_end (struct frame * f);
 static WORD w32_face_attributes (struct frame *f, int face_id);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
-static void w32con_write_vt_seq (char *);
+static int w32con_write_vt_seq (char *);
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
