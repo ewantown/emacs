@@ -881,17 +881,19 @@ turn_on_face (struct frame *f, int face_id)
 	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 	    :   (fg >= 16 && fg < 256) ? fg
 	    : -1;
-	  if (fgv >= 0)
+	  if (fgv >= 0) {
 	    snprintf(seq, 10, fg < 16 ? "[%lum" : "[38;5;%lum", fgv);
 	    WriteConsole (current_buffer, seq, 20, &written, NULL);
-
+	    }
+	  
 	  bgv = (bg >= 0  && bg < 8)   ? bg + 40
 	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
 	    :   (bg >= 16 && bg < 256) ? bg
 	    : -1;
-	  if (bgv >= 0)
+	  if (bgv >= 0) {
 	    snprintf(seq, 10, bg < 16 ? "[%lum" : "[48;5;%lum", bgv);
 	    WriteConsole (current_buffer, seq, 20, &written, NULL);
+	  }
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
@@ -925,7 +927,6 @@ turn_on_face2 (struct frame *f, int face_id)
   // SSPRINTF (seq, &n, sz, "[7", NULL); /* save position? */
   SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
-    WriteConsole ()
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_italic_mode, NULL);
