@@ -98,7 +98,7 @@ ctrl_c_handler (unsigned long type)
 
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
-/* TODO - migrate to VT sequences */
+/* TODO - migrate to VT sequences: \x1b[<x>;<y>H  */
 static void
 w32con_move_cursor (struct frame *f, int row, int col)
 {
@@ -114,6 +114,14 @@ w32con_move_cursor (struct frame *f, int row, int col)
 
 void
 w32con_hide_cursor (struct tty_display_info *tty)
+{
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = FALSE;  
+  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+}
+
+void
+w32con_hide_cursor2 (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 1;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -132,6 +140,15 @@ w32con_hide_cursor (struct tty_display_info *tty)
 void
 w32con_show_cursor (struct tty_display_info *tty)
 {
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = TRUE;  
+  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+}
+
+
+void
+w32con_show_cursor2 (struct tty_display_info *tty)
+{
   tty->cursor_hidden = 0;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   console_cursor_info.bVisible = TRUE;  
@@ -147,6 +164,7 @@ w32con_show_cursor (struct tty_display_info *tty)
 }
 
 /* Clear from cursor to end of screen.  */
+/* TODO - migrate to VT sequences: \x1b[2J */
 static void
 w32con_clear_to_end (struct frame *f)
 {
@@ -155,7 +173,7 @@ w32con_clear_to_end (struct frame *f)
 }
 
 /* Clear the frame.  */
-/* TODO - migrate to VT sequences */
+/* TODO - migrate to VT sequences: \x1b[2J\x1b[3J */
 static void
 w32con_clear_frame (struct frame *f)
 {
@@ -851,7 +869,7 @@ turn_on_face (struct frame *f, int face_id)
   DWORD r;
   DWORD n = 0;
   size_t sz = 256;
-  char seq[sz];
+  char p[sz];
   sz--;
 
   /* Save cursor position (WriteConsole advances it) */
