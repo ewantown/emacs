@@ -5155,7 +5155,6 @@ extern Lisp_Object decode_env_path (const char *, const char *, bool);
 extern Lisp_Object empty_unibyte_string, empty_multibyte_string;
 extern AVOID terminate_due_to_signal (int, int);
 #ifdef WINDOWSNT
-extern void syms_of_ntterm (void);
 extern Lisp_Object Vlibrary_cache;
 #endif
 void fixup_locale (void);

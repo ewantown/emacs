@@ -2345,7 +2345,6 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_textprop ();
       syms_of_composite ();
 #ifdef WINDOWSNT
-      syms_of_ntterm ();
       syms_of_ntproc ();
 #endif /* WINDOWSNT */
 #if defined CYGWIN
