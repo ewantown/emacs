@@ -81,11 +81,9 @@ struct tty_display_info *current_tty = NULL;
 
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
-/* Setting this as the ctrl handler prevents emacs from being killed when
-   someone hits ^C in a 'suspended' session (child shell).
-   Also ignore Ctrl-Break signals.  */
-
 BOOL ctrl_c_handler (unsigned long);
+
+#define SEQMAX 512; /* Arbitrary limit on VT sequence size */
 
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
@@ -93,6 +91,9 @@ BOOL ctrl_c_handler (unsigned long);
       *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
+/* Setting this as the ctrl handler prevents emacs from being killed when
+   someone hits ^C in a 'suspended' session (child shell).
+   Also ignore Ctrl-Break signals.  */
 BOOL
 ctrl_c_handler (unsigned long type)
 {
@@ -371,15 +372,13 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
     }
 }
 
-static void
+static int
 w32con_write_vt_seq (char *seq)
 {
-  char buf[512]; /* limit on sequences */
-  DWORD length = 0;
-  SSPRINTF (buf, &length, 512, seq, NULL);
-  DWORD written;
-
-  WriteConsoleA (current_buffer, (LPCSTR) buf, length, &written, NULL);
+  char buf[SEQMAX];
+  DWORD n = 0;
+  SSPRINTF (buf, &n, SEQMAX, seq, NULL);
+  return n && WriteConsoleA (current_buffer, (LPCSTR) buf, n, &n, NULL);
 }
 
 static void // TODO delete
@@ -936,8 +935,11 @@ turn_on_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
+  unsigned long fg = face->foreground;
+  unsigned long bg = face->background;
+
   DWORD n = 0;
-  size_t sz = 512;
+  size_t sz = SEQMAX;
   char seq[sz];
   sz--;
 
@@ -950,40 +952,40 @@ turn_on_face (struct frame *f, int face_id)
     SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL);
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
-
-  unsigned long fg = face->foreground;
-  unsigned long bg = face->background;
-
-  if (fg <= 0 && bg <= 0) {
-    fg = fg_normal, bg = bg_normal;
-    if (face->tty_reverse_p)
+  /* Note: xfaces.c swaps the values of fg and bg when fg and bg are
+     set and face->tty_reverse_p. Adding the terminal sequence here
+     swaps them back, which is no good. But we still need to handle
+     the reversal if they are not set. */
+  if (fg == FACE_TTY_DEFAULT_COLOR && bg == FACE_TTY_DEFAULT_COLOR)
+    {
       SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
-  }
-  /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
-     when fg and bg are set and face->tty_reverse_p. Adding the
-     terminal sequence here swaps them back, which is no good.
-     But we still need to handle the reversal if they are not set */
+    }
 
   if (tty->TN_max_colors > 0)
     {
-      unsigned long fgv = -1, bgv = -1;
       const char *set_fg = tty->TS_set_foreground;
       const char *set_bg = tty->TS_set_background;
+      unsigned long fgv = 0, bgv = 0;
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
-	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
-	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
-	    :   (fg >= 16 && fg < 256) ? fg
-	    : -1;
-	  if (fgv >= 0)
-	    SSPRINTF (seq, &n, sz, set_fg, fgv);
-
-	  bgv = (bg >= 0  && bg < 8)   ? bg + 40
-	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
-	    :   (bg >= 16 && bg < 256) ? bg
-	    : -1;
-	  if (bgv >= 0)
-	    SSPRINTF (seq, &n, sz, set_bg, bgv);
+	  if (fg != FACE_TTY_DEFAULT_COLOR)
+	    {
+	      fgv = (fg >= 0  && fg < 8)   ? fg + 30
+		:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+		:   (fg >= 16 && fg < 256) ? fg
+		: 0;
+	      if (fgv)
+		SSPRINTF (seq, &n, sz, set_fg, fgv);
+	    }
+	  if (bg != FACE_TTY_DEFAULT_COLOR)
+	    {
+	      bgv = (bg >= 0  && bg < 8)   ? bg + 40
+		:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+		:   (bg >= 16 && bg < 256) ? bg
+		: 0;
+	      if (bgv)
+		SSPRINTF (seq, &n, sz, set_bg, bgv);
+	    }
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
@@ -993,8 +995,19 @@ turn_on_face (struct frame *f, int face_id)
 	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
 	}
     }
-  if (n > 0)
-    w32con_write_vt_seq (seq);
+
+  if (!w32con_write_vt_seq (seq)
+      && (face->foreground != FACE_TTY_DEFAULT_COLOR
+	  || face->background != FACE_TTY_DEFAULT_COLOR))	   
+    {
+      printf ("Failed to write face\n");
+      if (!tty->TS_set_foreground)
+	printf ("TS_set_foreground not set for this tty\n");
+      if (!tty->TS_set_background)
+	printf ("TS_set_background not set for this tty\n");	
+      fflush (stdout);
+      exit (1);
+    }
 }
 
 
@@ -1022,7 +1035,7 @@ turn_off_face (struct frame *f, int face_id)
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
   DWORD n = 0;
-  int sz = 32;
+  int sz = SEQMAX;
   char seq[sz];
   sz--;
 
