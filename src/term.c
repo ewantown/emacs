@@ -4687,6 +4687,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     tty->TS_exit_underline_mode = "[24m";
     tty->TS_enter_reverse_mode = "[7m";
     tty->TS_exit_attribute_mode = "[0m";
+    tty->TS_cursor_invisible = "[?25l";
+    tty->TS_cursor_visible = "[?25h";
 
     FrameRows (tty) = height;
     FrameCols (tty) = width;
