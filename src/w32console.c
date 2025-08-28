@@ -670,10 +670,7 @@ w32con_set_terminal_modes (struct terminal *t)
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
    clumps rather than one-character-at-a-time...
 
-   we'll start with not moving the cursor while an update is in progress.
-
-   ...use of WriteConsole instead of WriteConsoleOutput to handle color
-   via VT sequences results in change of the cursor position */
+   we'll start with not moving the cursor while an update is in progress. */
 static void
 w32con_update_begin (struct frame * f)
 {
@@ -681,7 +678,7 @@ w32con_update_begin (struct frame * f)
   if (!w32_use_virtual_terminal_sequences
       && current_tty->TN_max_colors > 16)
     {
-      tty_setup_colors (tty, 16);
+      tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
 }

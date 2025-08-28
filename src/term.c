@@ -75,10 +75,6 @@ static void dissociate_if_controlling_tty (int fd);
 static void delete_tty (struct terminal *);
 #endif /* !HAVE_ANDROID */
 
-#if !defined MSDOS && !defined HAVE_ANDROID
-void tty_setup_colors (struct tty_display_info *tty, int mode);
-#endif
-
 static AVOID maybe_fatal (bool, struct terminal *, const char *, const char *,
 			  ...)
   ATTRIBUTE_FORMAT_PRINTF (3, 5) ATTRIBUTE_FORMAT_PRINTF (4, 5);
