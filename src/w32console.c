@@ -19,6 +19,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 /*
    Tim Fleehart (apollo@online.com)		1-17-92
    Geoff Voelker (voelker@cs.washington.edu)	9-12-93
+
+   c. 2025: 24bit RGB support in Windows (10+) Terminal and Console Host   
+   https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 */
 
 
@@ -363,7 +366,7 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 }
 
 static void
-w32con_write_vt_seq2 (char *seq)
+w32con_write_vt_seq (char *seq)
 {
   char buf[256]; /* limit on sequences */
   DWORD length = 0;
@@ -374,7 +377,7 @@ w32con_write_vt_seq2 (char *seq)
 }
 
 static void // TODO delete
-w32con_write_vt_seq (char *seq)
+w32con_write_vt_seq2 (char *seq)
 {
   LPCSTR buffer;
   struct coding_system *coding = &safe_terminal_coding;
@@ -858,8 +861,9 @@ w32_face_attributes (struct frame *f, int face_id)
 }
 
 /* Translate face attributes into VT sequences, then write. */
+/* TODO delete */
 static void
-turn_on_face (struct frame *f, int face_id)
+turn_on_face__OLD (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   unsigned long fg = face->foreground;
@@ -913,9 +917,8 @@ turn_on_face (struct frame *f, int face_id)
   WriteConsole (cur_screen, p, n, &r, NULL);
 }  
 
-/* TODO delete */
 static void
-turn_on_face2 (struct frame *f, int face_id)
+turn_on_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   unsigned long fg = face->foreground;
@@ -930,7 +933,7 @@ turn_on_face2 (struct frame *f, int face_id)
   sz--;
 
   // SSPRINTF (seq, &n, sz, "\x1b[7", NULL); /* save position? */
-  SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
+  // SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL);
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
@@ -952,8 +955,6 @@ turn_on_face2 (struct frame *f, int face_id)
       const char *set_bg = tty->TS_set_background;
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
-	  set_fg = "\x1b[38;5;%dm"; // TODO delete
-	  set_bg = "\x1b[48;5;%dm"; // TODO delete 
 	  fgv = (fg >= 0  && fg < 8)   ? fg + 30
 	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 	    :   (fg >= 16 && fg < 256) ? fg
@@ -970,8 +971,6 @@ turn_on_face2 (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-	  set_fg = "\x1b[38;2;%lu;%lu;%lum"; // TODO delete
-	  set_bg = "\x1b[48;2;%lu;%lu;%lum"; // TODO delete
 	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
@@ -984,7 +983,7 @@ turn_on_face2 (struct frame *f, int face_id)
 
 
 static void
-turn_off_face (struct frame *f, int face_id)
+turn_off_face_OLD (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
@@ -1002,7 +1001,7 @@ turn_off_face (struct frame *f, int face_id)
 
 
 static void
-turn_off_face2 (struct frame *f, int face_id)
+turn_off_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
   struct tty_display_info *tty = FRAME_TTY (f);
@@ -1014,8 +1013,8 @@ turn_off_face2 (struct frame *f, int face_id)
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
   // SSPRINTF (seq, &n, sz, "\x1b[8", NULL); /* restore position? */
 
-  if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden)
-    SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL);
+  /* if (!XWINDOW (selected_window)->cursor_off_p && !(tty)->cursor_hidden) */
+  /*   SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL); */
 
   w32con_write_vt_seq (seq);
 }

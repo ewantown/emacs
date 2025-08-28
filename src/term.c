@@ -2273,23 +2273,23 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 #endif
 #ifdef WINDOWSNT
 	tty->TS_orig_pair = "\x1b[39m\x1b[49m";
-	tty->TS_set_foreground = "\x1b[%dm";
-	tty->TS_set_background = "\x1b[%dm";
+	tty->TS_set_foreground = "\x1b[%lum";
+	tty->TS_set_background = "\x1b[%lum";
 #endif
 	tty->TN_max_colors = 8;
 	tty->TN_no_color_video = 0;
 	break;
 #ifdef WINDOWSNT
       case 16:
-	tty->TS_set_foreground = "\x1b[%dm";
-	tty->TS_set_background = "\x1b[%dm";
+	tty->TS_set_foreground = "\x1b[%lum";
+	tty->TS_set_background = "\x1b[%lum";
 	tty->TN_max_colors = 16;
 	tty->TN_no_color_video = 0;
 	break;
       case 256:
 	tty->TN_max_colors = 256;
-	tty->TS_set_foreground = "\x1b[38;5;%dm";
-	tty->TS_set_background = "\x1b[48;5;%dm";
+	tty->TS_set_foreground = "\x1b[38;5;%lum";
+	tty->TS_set_background = "\x1b[48;5;%lum";
 	tty->TN_no_color_video = 0;
 	break;
       case 16777216:
@@ -4669,7 +4669,7 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
     initialize_w32_display (terminal, &width, &height);
 
     /* 24bit RGB support in Windows (10+) Terminal and Console Host
-       \x1b <= C-q C-[ */
+       https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences */
     tty->TN_no_color_video = 0;
     tty->TN_max_colors = 16777216;
     tty->TS_orig_pair = "\x1b[39m\x1b[49m";
