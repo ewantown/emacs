@@ -1008,11 +1008,13 @@ turn_on_face (struct frame *f, int face_id)
 	      printf ("seq is empty string\n");
 	    }
 	  else
-	    while (i < SEQMAX && seq[i] != '\0')
-	      {
-		if (seq[i] == '\x1b')
-		  seq[i] = '#';
-	      }
+	    {
+	      while (i < SEQMAX && seq[i] != '\0')
+		{
+		  if (seq[i] == '\x1b')
+		    seq[i] = '#';
+		}
+	    }
 	}
       else
 	{
@@ -1022,15 +1024,23 @@ turn_on_face (struct frame *f, int face_id)
       printf ("tty->TN_max_colors: %lu", tty->TN_max_colors);
       printf ("Face: %d", face->id);
       if (!tty->TS_set_foreground)
-	printf ("TS_set_foreground not set for this tty\n");
+	{
+	  printf ("TS_set_foreground not set for this tty\n");
+	}
       else
-	printf ("TS_set_foreground: %s \n", tty->TS_set_foreground);
-	printf ("face->foreground: %lu \n", face->foreground);
+	{
+	  printf ("TS_set_foreground: %s \n", tty->TS_set_foreground);
+	  printf ("face->foreground: %lu \n", face->foreground);
+	}
       if (!tty->TS_set_background)
-	printf ("TS_set_background not set for this tty\n");
-	printf ("face->background: %lu \n", face->foreground);
+	{
+	  printf ("TS_set_background not set for this tty\n");
+	  printf ("face->background: %lu \n", face->foreground);
+	}
       else
-	printf ("TS_set_background: %s \n", tty->TS_set_background);
+	{
+	  printf ("TS_set_background: %s \n", tty->TS_set_background);
+	}
       fflush (stdout);
       exit (1);
     }
