@@ -1013,6 +1013,7 @@ turn_on_face (struct frame *f, int face_id)
 		{
 		  if (seq[i] == '\x1b')
 		    seq[i] = '#';
+		  i++;
 		}
 	    }
 	}
