@@ -206,7 +206,7 @@ w32con_save_cursor (void)
 void
 w32con_restore_cursor (void)
 {
-  cursor_coords = saved_coords;
+  cursor_coords = saved_coords ? saved_coords : cursor_coords;
   if (w32_use_virtual_terminal_sequences)
     w32con_write_vt_seq ((char *) "\x1b[8");
   else
@@ -741,7 +741,6 @@ w32con_update_begin (struct frame * f)
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
-  w32con_hide_cursor ();
 }
 
 static void
@@ -910,9 +909,7 @@ turn_on_face (struct frame *f, int face_id)
   const char *set_fg = tty->TS_set_foreground;
   const char *set_bg = tty->TS_set_background;
   unsigned long fgi = 0, bgi = 0;
-  if (tty->TN_max_colors == 8  ||
-      tty->TN_max_colors == 16 ||
-      tty->TN_max_colors == 256)
+  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
     {
       if (!DEFAULTP (fg))
 	{
