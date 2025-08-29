@@ -91,9 +91,14 @@ BOOL ctrl_c_handler (unsigned long);
       *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
-/* Setting this as the ctrl handler prevents emacs from being killed when
-   someone hits ^C in a 'suspended' session (child shell).
-   Also ignore Ctrl-Break signals.  */
+#define DEFAULTP(p)							\
+  (p == FACE_TTY_DEFAULT_COLOR						\
+   || p == FACE_TTY_DEFAULT_FG_COLOR					\
+   || p == FACE_TTY_DEFAULT_BG_COLOR)
+
+/* Setting this as the ctrl handler prevents emacs from being killed
+   when someone hits ^C in a 'suspended' session (child shell). Also
+   ignore Ctrl-Break signals.  */
 BOOL
 ctrl_c_handler (unsigned long type)
 {
@@ -957,86 +962,78 @@ turn_on_face (struct frame *f, int face_id)
      swaps them back, which is no good. But we still need to handle
      the reversal if they are not set. */
   if (fg == FACE_TTY_DEFAULT_COLOR && bg == FACE_TTY_DEFAULT_COLOR)
-    {
-      SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
-    }
+    SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
 
   if (tty->TN_max_colors > 0)
     {
       const char *set_fg = tty->TS_set_foreground;
       const char *set_bg = tty->TS_set_background;
-      unsigned long fgv = 0, bgv = 0;
+      unsigned long fgi = 0, bgi = 0;
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
-	  if (fg != FACE_TTY_DEFAULT_COLOR)
+	  if (!DEFAULTP fg)
 	    {
-	      fgv = (fg >= 0  && fg < 8)   ? fg + 30
+	      fgi = (fg >= 0  && fg < 8)   ? fg + 30
 		:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 		:   (fg >= 16 && fg < 256) ? fg
 		: 0;
-	      if (fgv)
-		SSPRINTF (seq, &n, sz, set_fg, fgv);
+	      if (fgi)
+		SSPRINTF (seq, &n, sz, set_fg, fgi);
 	    }
-	  if (bg != FACE_TTY_DEFAULT_COLOR)
+	  if (!DEFAULTP bg)
 	    {
-	      bgv = (bg >= 0  && bg < 8)   ? bg + 40
+	      bgi = (bg >= 0  && bg < 8)   ? bg + 40
 		:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
 		:   (bg >= 16 && bg < 256) ? bg
 		: 0;
-	      if (bgv)
-		SSPRINTF (seq, &n, sz, set_bg, bgv);
+	      if (bgi)
+		SSPRINTF (seq, &n, sz, set_bg, bgi);
 	    }
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
-	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
-	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
-	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
+	  if (!DEFAULTP fg)
+	    {
+	      unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
+	      SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
+	    }
+	  if (!DEFAULTP bg)
+	    {
+	      unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
+	      SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
+	    }
 	}
     }
 
   if (!w32con_write_vt_seq (seq)
-      && (face->foreground != FACE_TTY_DEFAULT_COLOR
-	  || face->background != FACE_TTY_DEFAULT_COLOR))
+      && (!DEFAULTP face->foreground || !DEFAULTP face->background))
     {
       int i = 0;
       if (seq)
-	{
-	  if (seq[0] == '\0')
+	if (seq[0] == '\0')
+	  printf ("seq is empty string\n");
+	else
+	  while (i < SEQMAX && seq[i] != '\0')
 	    {
-	      printf ("seq is empty string\n");
+	      if (seq[i] == '\x1b') seq[i] = '#';
+	      if (seq[i] ==    '%') seq[i] = '_';
+	      i++;
 	    }
-	  else
-	    {
-	      while (i < SEQMAX && seq[i] != '\0')
-		{
-		  if (seq[i] == '\x1b')
-		    seq[i] = '#';
-		  i++;
-		}
-	    }
-	}
       else
-	{
-	  printf ("seq is null");
-	}
+	printf ("seq is null");
+
       printf ("Failed to write face seq: %s \n", seq);
       printf ("tty->TN_max_colors: %lu", tty->TN_max_colors);
       printf ("Face: %d", face->id);
       if (!tty->TS_set_foreground)
-	{
-	  printf ("TS_set_foreground not set for this tty\n");
-	}
+	printf ("TS_set_foreground not set for this tty\n");
       else
 	{
 	  printf ("TS_set_foreground: %s \n", tty->TS_set_foreground);
 	  printf ("face->foreground: %lu \n", face->foreground);
 	}
       if (!tty->TS_set_background)
-	{
-	  printf ("TS_set_background not set for this tty\n");	  
-	}
+	printf ("TS_set_background not set for this tty\n");
       else
 	{
 	  printf ("TS_set_background: %s \n", tty->TS_set_background);
