@@ -971,7 +971,7 @@ turn_on_face (struct frame *f, int face_id)
       unsigned long fgi = 0, bgi = 0;
       if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
 	{
-	  if (!DEFAULTP fg)
+	  if (!DEFAULTP (fg))
 	    {
 	      fgi = (fg >= 0  && fg < 8)   ? fg + 30
 		:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
@@ -980,7 +980,7 @@ turn_on_face (struct frame *f, int face_id)
 	      if (fgi)
 		SSPRINTF (seq, &n, sz, set_fg, fgi);
 	    }
-	  if (!DEFAULTP bg)
+	  if (!DEFAULTP (bg))
 	    {
 	      bgi = (bg >= 0  && bg < 8)   ? bg + 40
 		:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
@@ -992,12 +992,12 @@ turn_on_face (struct frame *f, int face_id)
 	}
       else if (tty->TN_max_colors == 16777216)
 	{
-	  if (!DEFAULTP fg)
+	  if (!DEFAULTP (fg))
 	    {
 	      unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
 	      SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
 	    }
-	  if (!DEFAULTP bg)
+	  if (!DEFAULTP (bg))
 	    {
 	      unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
 	      SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
@@ -1006,7 +1006,7 @@ turn_on_face (struct frame *f, int face_id)
     }
 
   if (!w32con_write_vt_seq (seq)
-      && (!DEFAULTP face->foreground || !DEFAULTP face->background))
+      && (!DEFAULTP (face->foreground) || !DEFAULTP (face->background)))
     {
       int i = 0;
       if (seq)
