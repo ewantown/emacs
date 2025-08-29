@@ -19,6 +19,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 /*
    Tim Fleehart (apollo@online.com)		1-17-92
    Geoff Voelker (voelker@cs.washington.edu)	9-12-93
+   Ewan Townshend (ewan@etown.dev)              2025-08
 
    c. 2025: 24bit RGB support in Windows (10+) Terminal and Console Host   
    https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
@@ -26,7 +27,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 
 #include <config.h>
-#include <string.h> // TODO delete
 #include <stdio.h>
 #include <windows.h>
 
@@ -88,19 +88,6 @@ struct tty_display_info *current_tty = NULL;
 
 BOOL ctrl_c_handler (unsigned long);
 
-#define SEQMAX 512 /* Arbitrary limit on VT sequence size */
-
-#define SSPRINTF(buf, i, sz, fmt, ...)					\
-  do {									\
-    if (fmt)								\
-      *i += snprintf(buf + *i, sz - *i, fmt, __VA_ARGS__);		\
-  } while (0)
-
-#define DEFAULTP(p)							\
-  (p == FACE_TTY_DEFAULT_COLOR						\
-   || p == FACE_TTY_DEFAULT_FG_COLOR					\
-   || p == FACE_TTY_DEFAULT_BG_COLOR)
-
 /* Setting this as the ctrl handler prevents emacs from being killed
    when someone hits ^C in a 'suspended' session (child shell). Also
    ignore Ctrl-Break signals.  */
@@ -111,6 +98,19 @@ ctrl_c_handler (unsigned long type)
   return (!noninteractive
 	  && (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT));
 }
+
+#define SEQMAX 512 /* Arbitrary limit on VT sequence size */
+
+#define SSPRINTF(buf, i, sz, fmt, ...)					\
+  do {									\
+    if (fmt)								\
+      *i += snprintf (buf + *i, sz - *i, fmt, __VA_ARGS__);		\
+  } while (0)
+
+#define DEFAULTP(p)							\
+  (p == FACE_TTY_DEFAULT_COLOR						\
+   || p == FACE_TTY_DEFAULT_FG_COLOR					\
+   || p == FACE_TTY_DEFAULT_BG_COLOR)
 
 /* For debugging */
 static void
@@ -1214,10 +1214,11 @@ scroll-back buffer.  */);
   DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
 		w32_use_virtual_terminal_sequences,
 		doc: /* If non-nil w32 console uses terminal sequences for some output processing.
-The variable is set dynamically based on the capabilities of the terminal.
+This variable is set automatically based on the capabilities of the terminal.
 It determines the number and indices of colors used for faces on the console.
 If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
-See `w32con-set-up-initial-frame-faces' */);
+See `w32con-set-up-initial-frame-faces', which should be called after setting this variable 
+manually in a running session. */);
   w32_use_virtual_terminal_sequences = 0;
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
