@@ -180,7 +180,7 @@ w32con_show_cursor (struct tty_display_info *tty)
 void
 w32con_save_cursor ()
 {
-  if (w32con_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences)
      w32con_write_vt_seq ("\x1b[7");
   else
       saved_coords = cursor_coords;
@@ -189,7 +189,7 @@ w32con_save_cursor ()
 void
 w32con_restore_cursor ()
 {
-  if (w32con_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences)
     w32con_write_vt_seq ("\x1b[8");
   else
     {
@@ -1047,7 +1047,7 @@ turn_on_face (struct frame *f, int face_id)
 	printf ("TS_set_foreground not set for this tty\n");
       else
 	{
-	  puts ("TS_set_foreground:")
+	  puts ("TS_set_foreground:");
 	  puts (tty->TS_set_foreground);
 	  printf ("face->foreground: %lu \n", face->foreground);
 	}
@@ -1055,7 +1055,7 @@ turn_on_face (struct frame *f, int face_id)
 	printf ("TS_set_background not set for this tty\n");
       else
 	{
-	  puts ("TS_set_background:")
+	  puts ("TS_set_background:");
 	  puts (tty->TS_set_foreground);
 	  
 	  printf ("TS_set_background: %s \n", tty->TS_set_background);
