@@ -347,7 +347,7 @@ tty_hide_cursor (struct tty_display_info *tty)
     {
       tty->cursor_hidden = 1;
 #ifdef WINDOWSNT
-      w32con_hide_cursor (tty);
+      w32con_hide_cursor ();
 #else
       OUTPUT_IF (tty, tty->TS_cursor_invisible);
 #endif

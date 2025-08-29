@@ -43,7 +43,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "w32.h"	/* for syms_of_ntterm */
 #endif
 
-static void w32con_move_cursor (struct frame *f, int row, int col);
 static void w32con_clear_to_end (struct frame *f);
 static void w32con_clear_frame (struct frame *f);
 static void w32con_clear_end_of_line (struct frame *f, int);
@@ -54,11 +53,18 @@ static void w32con_delete_glyphs (struct frame *f, int n);
 static void w32con_reset_terminal_modes (struct terminal *t);
 static void w32con_set_terminal_modes (struct terminal *t);
 static void w32con_update_begin (struct frame * f);
-static void w32con_update_end (struct frame * f);
+static void w32con_update_end (struct frame *f);
+static int  w32con_write_vt_seq (char *);
 static WORD w32_face_attributes (struct frame *f, int face_id);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
-static int w32con_write_vt_seq (char *);
+static void w32con_move_cursor (struct frame *f, int row, int col);
+static void w32con_save_cursor (void);
+static void w32con_restore_cursor (void);
+void w32con_show_cursor (void);
+void w32con_hide_cursor (void);
+
+extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
@@ -79,8 +85,6 @@ int w32_console_unicode_input;
 
 extern struct tty_display_info *current_tty;
 struct tty_display_info *current_tty = NULL;
-
-extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 BOOL ctrl_c_handler (unsigned long);
 
@@ -108,6 +112,43 @@ ctrl_c_handler (unsigned long type)
 	  && (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT));
 }
 
+/* For debugging */
+static void
+vt_seq_error (char *seq)
+{
+  int i = 0; int j = 0;
+  if (seq)
+    if (seq[0] == '\0') seq = "<empty>";
+    else
+      while (i < SEQMAX)
+	{
+	  if (seq[i] == '\x1b') seq[i] = '#';
+	  if (seq[i] ==    '%') seq[i] = '_';
+	  if (seq[i] ==   '\0') { j++; break; }
+	  i++;
+	}
+  else seq = "<null>";
+  printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
+  printf ("LastError: 0x%dx\n", GetLastError ());
+  fflush (stdout);
+  exit (1);
+}
+
+/* Writes (dynamic) virtual terminal ASCII sequences to screen */
+static int
+w32con_write_vt_seq (char *seq)
+{
+  char buf[SEQMAX];
+  DWORD n = 0, k = 0;
+  SSPRINTF (buf, &n, SEQMAX, seq, NULL);
+  int _ = n && WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
+  if (n && !k) vt_seq_error (seq); // TODO - delete
+  return k;
+}
+
+/***********************************************************************
+                            Cursor Control
+***********************************************************************/
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
 /* TODO - migrate to VT sequences: \x1b[<x>;<y>H  */
@@ -125,82 +166,63 @@ w32con_move_cursor (struct frame *f, int row, int col)
 }
 
 void
-w32con_hide_cursor2 (struct tty_display_info *tty)
+w32con_hide_cursor (void)
 {
-  tty->cursor_hidden = 1;
-
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   console_cursor_info.bVisible = FALSE;
 
-  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-}
-
-void
-w32con_hide_cursor (struct tty_display_info *tty)
-{
-  tty->cursor_hidden = 1;
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;
-  
   if (w32_use_virtual_terminal_sequences)
-    {
-      w32con_write_vt_seq ((char *) tty->TS_cursor_invisible);
-    }
+    if (!current_tty->cursor_hidden)
+      w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
   else
-    {
-      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-    }
+    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+
+  current_tty->cursor_hidden = 1;
 }
 
 void
-w32con_show_cursor2 (struct tty_display_info *tty)
-{
-  tty->cursor_hidden = 0;
-
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;
-
-  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-}
-
-
-void
-w32con_show_cursor (struct tty_display_info *tty)
-{
-  tty->cursor_hidden = 0;
+w32con_show_cursor (void)
+{  
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
   console_cursor_info.bVisible = TRUE;
 
   if (w32_use_virtual_terminal_sequences)
-      w32con_write_vt_seq ((char *) tty->TS_cursor_visible);
+    if (current_tty->cursor_hidden)
+      w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
   else
-      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+
+  current_tty->cursor_hidden = 0;
 }
 
 void
-w32con_save_cursor ()
+w32con_save_cursor (void)
 {
+  saved_coords = cursor_coords;
   if (w32_use_virtual_terminal_sequences)
-     w32con_write_vt_seq ("\x1b[7");
-  else
-      saved_coords = cursor_coords;
+    w32con_write_vt_seq ((char *) "\x1b[7");
 }
 
 void
-w32con_restore_cursor ()
+w32con_restore_cursor (void)
 {
+  cursor_coords = saved_coords;
   if (w32_use_virtual_terminal_sequences)
-    w32con_write_vt_seq ("\x1b[8");
+    w32con_write_vt_seq ((char *) "\x1b[8");
   else
-    {
-      cursor_coords = saved_coords;
-      SetConsoleCursorPosition (cur_screen, cursor_coords);
-    }
+    SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
+/***********************************************************************
+                         Text Modification
+ ***********************************************************************/
 
 /* Clear from cursor to end of screen.  */
-/* TODO - migrate to VT sequences: \x1b[2J */
+/* TODO - migrate to VT sequences:
+   "clear" := overwrite with space character
+   \x1b[0J => clear cursor (inclusive) to end of screen
+   \x1b[1J => clear beginning of screen to cursor (inclusive)
+   \x1b[2J => clear entire screen (excluding scrollback area) */
 static void
 w32con_clear_to_end (struct frame *f)
 {
@@ -209,7 +231,10 @@ w32con_clear_to_end (struct frame *f)
 }
 
 /* Clear the frame.  */
-/* TODO - migrate to VT sequences: \x1b[2J\x1b[3J */
+/* TODO - migrate to VT sequences: \x1b[2J\x1b[3J
+   "clear" := overwrite with space character
+   \x1b[2J => clear entire screen (excluding scrollback area)
+   \x1b[3J => clear scrollback area */
 static void
 w32con_clear_frame (struct frame *f)
 {
@@ -237,7 +262,10 @@ static size_t glyphs_len = ARRAYELTS (glyph_base);
 static BOOL  ceol_initialized = FALSE;
 
 /* Clear from Cursor to end (what's "standout marker"?).  */
-/* TODO - migrate to VT sequences */
+/* TODO - migrate to VT sequences:
+   \x1b[0K => clear cursor (inclusive) to end of line
+   \x1b[1K => clear beginning of line to cursor (inclusive)
+   \x1b[2K => clear entire line */
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
@@ -266,7 +294,9 @@ w32con_clear_end_of_line (struct frame *f, int end)
 }
 
 /* Insert n lines at vpos. if n is negative delete -n lines.  */
-/* TODO - migrate to VT sequences */
+/* TODO - migrate to VT sequences
+   \x1b[<n>L => insert <n> lines above, shifting cursor and below down
+   \x1b[<n>M => delete <n> lines below, from cursor line (incl.) down */
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
@@ -340,7 +370,9 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 #define	LEFT	1
 #define	RIGHT	0
 
-/* TODO - migrate to VT sequences */
+/* TODO - migrate to VT sequences:
+   \x1b[<n>@ => insert <n> spaces at cursor, shift current text right
+   \x1b[<n>P => delete <n> chars  at cursor, adding spaces from right */
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
@@ -380,95 +412,19 @@ static void
 w32con_insert_glyphs (struct frame *f, register struct glyph *start,
 		      register int len)
 {
+  /* Move len chars to the right from cursor_coords, fill with blanks */
   scroll_line (f, len, RIGHT);
-
-  /* Move len chars to the right starting at cursor_coords, fill with blanks */
+  
   if (start)
     {
-      /* Print the first len characters of start, cursor_coords.X adjusted
-	 by write_glyphs.  */
-
+      /* Print the first len characters of start.
+	 cursor_coords.X adjusted by write_glyphs.  */
       w32con_write_glyphs (f, start, len);
     }
   else
     {
       w32con_clear_end_of_line (f, cursor_coords.X + len);
     }
-}
-
-// For debugging
-static void
-vt_seq_error (char *seq)
-{
-  int i = 0; int j = 0;
-  if (seq)
-    if (seq[0] == '\0') seq = "<empty>";
-    else
-      while (i < SEQMAX)
-	{
-	  if (seq[i] == '\x1b') seq[i] = '#';
-	  if (seq[i] ==    '%') seq[i] = '_';
-	  if (seq[i] ==   '\0') { j++; break; }
-	  i++;
-	}
-  else seq = "<null>";
-  printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
-  printf ("LastError: 0x%lx\n", GetLastError ());
-  fflush (stdout);
-  exit (1);
-}
-
-static int
-w32con_write_vt_seq (char *seq)
-{
-  char buf[SEQMAX];
-  DWORD n = 0, k = 0;
-  SSPRINTF (buf, &n, SEQMAX, seq, NULL);
-  WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
-  if (n && !k) vt_seq_error (seq); // TODO - delete
-  return k;
-}
-
-static void // TODO delete
-w32con_write_vt_seq2 (char *seq)
-{
-  LPCSTR buffer;
-  struct coding_system *coding = &safe_terminal_coding;
-  char *string;
-  int length = 0;
-
-  coding->mode &= ~CODING_MODE_LAST_BLOCK;
- 
-  DWORD written;  
-  if (seq == NULL)
-    {
-      string = "NULL_SEQ";
-      length = 8;
-    }
-  else
-    {
-      // Check for null termination within the specified length
-      for (size_t i = 0; i < 500; i++)
-	{
-	  if (seq[i] == '\0')
-	    {
-	      if (i == 0)
-		{
-		  string = "MT_SEQ";
-		  length = 6;		  
-		}
-	      else
-		{
-		  string = seq;
-		  length = strlen (seq);		  
-		}	    
-	      return;
-	    }
-	}
-      string = "BAD_SEQ";
-      length = 7;
-    }
-  WriteConsole (current_buffer, (LPCSTR) string, length, &written, NULL);
 }
 
 static void
@@ -521,13 +477,11 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	  if (w32_use_virtual_terminal_sequences)
 	    {
 	      w32con_save_cursor ();
-	      w32con_hide_cursor (FRAME_TTY (f));
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
 	      w32con_restore_cursor ();
-	      w32con_show_cursor(FRAME_TTY (f));
 
 	      cursor_coords.X += coding->produced;
 	      /* WriteConsole advances the cursor */
@@ -582,13 +536,11 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
       if (w32_use_virtual_terminal_sequences)
 	{
 	  w32con_save_cursor ();
-	  w32con_hide_cursor (FRAME_TTY (f));
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
-	  w32con_show_cursor(FRAME_TTY (f));
 
 	  cursor_coords.X += coding->produced;
 	  /* WriteConsole advances cursor */
@@ -705,6 +657,9 @@ w32con_delete_glyphs (struct frame *f, int n)
   scroll_line (f, n, LEFT);
 }
 
+/***********************************************************************
+                         Set up / Tear down
+***********************************************************************/
 
 static void
 w32con_reset_terminal_modes (struct terminal *t)
@@ -786,6 +741,7 @@ w32con_update_begin (struct frame * f)
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
+  w32con_hide_cursor ();
 }
 
 static void
@@ -795,9 +751,9 @@ w32con_update_end (struct frame * f)
   struct tty_display_info *tty = FRAME_TTY (f);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
-    w32con_show_cursor (tty);
+    w32con_show_cursor ();
   else
-    w32con_hide_cursor (tty);
+    w32con_hide_cursor ();
 }
 
 /***********************************************************************
@@ -891,7 +847,6 @@ cursorY (struct tty_display_info *tty)
 				Faces
  ***********************************************************************/
 
-
 /* Turn appearances of face FACE_ID on tty frame F on.  */
 
 static WORD
@@ -927,63 +882,6 @@ w32_face_attributes (struct frame *f, int face_id)
   return char_attr;
 }
 
-/* Translate face attributes into VT sequences, then write. */
-/* TODO delete */
-static void
-turn_on_face__OLD (struct frame *f, int face_id)
-{
-  struct face *face = FACE_FROM_ID (f, face_id);
-  unsigned long fg = face->foreground;
-  unsigned long bg = face->background;
-  if (!fg && !bg)
-    fg = fg_normal, bg = bg_normal;
-
-  struct tty_display_info *tty = FRAME_TTY (f);
-  DWORD r;
-  DWORD n = 0;
-  size_t sz = 256;
-  char p[sz];
-  sz--;
-
-  /* Save cursor position (WriteConsole advances it) */
-  n += snprintf (p + n, sz - n, "\x1b[7"); /* save position */
-
-  if (face->tty_bold_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 1);
-  if (face->tty_italic_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 3);
-  if (face->tty_strike_through_p)
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 9);
-  if (face->underline != 0) /* no support for multicolor glyphs now */
-    n += snprintf (p + n, sz - n, "\x1b[%dm", 4);
-  /* Note: realize_tty_face in xfaces.c swaps the values of fg and bg
-     when face->tty_reverse_p. Adding the terminal sequence "\x1b[7m"
-     here swaps them back, and makes for a tricky little bug. */
-
-  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
-    {
-      if (fg >= 0 && fg < 8)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", fg + 30);
-      if (fg >= 8 && fg < 16)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", fg - 8 + 90);
-      if (fg >= 16 && fg < 256)
-	n += snprintf (p + n, sz - n, "\x1b[38;5;%lum", fg);
-      if (bg >= 0 && bg < 8)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", bg + 40);
-      if (bg >= 8 && bg < 16)
-	n += snprintf (p + n, sz - n, "\x1b[%lum", bg - 8 + 100);
-      if (bg>= 16 && bg < 256)
-	n += snprintf (p + n, sz - n, "\x1b[48;5;%lum", bg);
-    }
-  else if (tty->TN_max_colors == 16777216)
-    {
-      n += snprintf (p + n, sz - n, "\x1b[38;2;%lu;%lu;%lum", fg/65536, (fg/256)&255, fg&255);
-      n += snprintf (p + n, sz - n, "\x1b[48;2;%lu;%lu;%lum", bg/65536, (bg/256)&255, bg&255);
-    }
-
-  WriteConsole (cur_screen, p, n, &r, NULL);
-}  
-
 static void
 turn_on_face (struct frame *f, int face_id)
 {
@@ -997,7 +895,6 @@ turn_on_face (struct frame *f, int face_id)
   char seq[sz];
   sz--;
 
-  /* SSPRINTF (seq, &n, sz, tty->TS_cursor_invisible, NULL); */
   if (face->tty_bold_p)
     SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
   if (face->tty_italic_p)
@@ -1007,16 +904,15 @@ turn_on_face (struct frame *f, int face_id)
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
   /* Note: xfaces.c swaps the values of fg and bg when fg and bg are
-     set and face->tty_reverse_p. Adding the terminal sequence here
-     swaps them back, which is no good. But we still need to handle
-     the reversal if they are not set. */
-  if (DEFAULTP (fg) && DEFAULTP (bg))
-    SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
+     set and face->tty_reverse_p. Adding the terminal sequence contained
+     in tty->TS_enter_reverse_mode swaps them back, which is no good. */
 
   const char *set_fg = tty->TS_set_foreground;
   const char *set_bg = tty->TS_set_background;
   unsigned long fgi = 0, bgi = 0;
-  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+  if (tty->TN_max_colors == 8  ||
+      tty->TN_max_colors == 16 ||
+      tty->TN_max_colors == 256)
     {
       if (!DEFAULTP (fg))
 	{
@@ -1052,24 +948,6 @@ turn_on_face (struct frame *f, int face_id)
 }
 
 static void
-turn_off_face_OLD (struct frame *f, int face_id)
-{
-  struct face *face = FACE_FROM_ID (f, face_id);
-  struct tty_display_info *tty = FRAME_TTY (f);
-  DWORD r;
-  DWORD n = 0;
-  int sz = 32;
-  char p[sz];
-  sz--;
-
-  n += snprintf (p, sz - n, "\x1b[0m"); /* restore default faces */
-  n += snprintf (p, sz - n, "\x1b[8");  /* restore cursor position */
-
-  WriteConsole (cur_screen, p, n, &r, NULL);
-}
-
-
-static void
 turn_off_face (struct frame *f, int face_id)
 {
   struct face *face = FACE_FROM_ID (f, face_id);
@@ -1081,11 +959,12 @@ turn_off_face (struct frame *f, int face_id)
 
   SSPRINTF (seq, &n, sz, tty->TS_exit_attribute_mode, NULL);
 
-  /* if (!XWINDOW (selected_window)->cursor_off_p) */
-  /*     SSPRINTF (seq, &n, sz, tty->TS_cursor_visible, NULL); */
-
   w32con_write_vt_seq (seq);
 }
+
+/***********************************************************************
+                             Initialization
+***********************************************************************/
 
 /* The IME window is needed to receive the session notifications
    required to reset the low level keyboard hook state.  */
@@ -1276,7 +1155,11 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
   setup_w32_kbdhook (hwnd);
 }
 
+/***********************************************************************
+                            Lisp Interface
+***********************************************************************/
 
+/* TODO - migrate to VT sequences (256 and 24bit color) */
 DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
        doc: /* Set screen foreground and background colors.
 
@@ -1292,7 +1175,6 @@ Arguments should be indices between 0 and 15, see w32console.el.  */)
   return Qt;
 }
 
-/* TODO - migrate to VT sequences */
 DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 0, 0,
        doc: /* Get color indices of the current screen foreground and background.
 

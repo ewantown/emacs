@@ -262,8 +262,8 @@ extern int w32_kbd_patch_key (KEY_EVENT_RECORD *event, int cpId);
 extern int w32_kbd_mods_to_emacs (DWORD mods, WORD key);
 
 /* w32console.c */
-extern void w32con_hide_cursor (struct tty_display_info *tty);
-extern void w32con_show_cursor (struct tty_display_info *tty);
+extern void w32con_hide_cursor (void);
+extern void w32con_show_cursor (void);
 
 /* w32reg.c */
 extern const char *w32_get_string_resource (void *v_rdb,
