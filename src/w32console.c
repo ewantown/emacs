@@ -60,7 +60,8 @@ static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
 static int w32con_write_vt_seq (char *);
 
-static COORD	cursor_coords;
+static COORD    cursor_coords;
+static COORD    saved_coords;
 static HANDLE	prev_screen, cur_screen;
 static WORD	char_attr_normal;
 static WORD	bg_normal;
@@ -168,17 +169,35 @@ w32con_show_cursor (struct tty_display_info *tty)
 {
   tty->cursor_hidden = 0;
   GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;  
+  console_cursor_info.bVisible = TRUE;
 
   if (w32_use_virtual_terminal_sequences)
-    {
       w32con_write_vt_seq ((char *) tty->TS_cursor_visible);
-    }
+  else
+      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+}
+
+void
+w32con_save_cursor ()
+{
+  if (w32con_use_virtual_terminal_sequences)
+     w32con_write_vt_seq ("\x1b[7");
+  else
+      saved_coords = cursor_coords;
+}
+
+void
+w32con_restore_cursor ()
+{
+  if (w32con_use_virtual_terminal_sequences)
+    w32con_write_vt_seq ("\x1b[8");
   else
     {
-      SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      cursor_coords = saved_coords;
+      SetConsoleCursorPosition (cur_screen, cursor_coords);
     }
 }
+
 
 /* Clear from cursor to end of screen.  */
 /* TODO - migrate to VT sequences: \x1b[2J */
@@ -477,12 +496,15 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
-	      // w32con_write_vt_seq("\x1b[7"); /* save cursor */
+	      w32con_save_cursor ();
+	      w32con_hide_cursor (FRAME_TTY (f));
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
-	      // w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	      w32con_restore_cursor ();
+	      w32con_show_cursor(FRAME_TTY (f));
+
 	      cursor_coords.X += coding->produced;
 	      /* WriteConsole advances the cursor */
 	    }
@@ -535,13 +557,17 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
     {
       if (w32_use_virtual_terminal_sequences)
 	{
-	  // w32con_write_vt_seq("\x1b[7"); /* save cursor */
+	  w32con_save_cursor ();
+	  w32con_hide_cursor (FRAME_TTY (f));
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
-			coding->produced, &written, NULL);
+			coding->produced, &r, NULL);
 	  turn_off_face (f, face_id);
-	  // w32con_write_vt_seq("\x1b[8"); /* restore cursor */
+	  w32con_restore_cursor ();
+	  w32con_show_cursor(FRAME_TTY (f));
+
 	  cursor_coords.X += coding->produced;
+	  /* WriteConsole advances cursor */
 	}
       else
 	{
@@ -588,9 +614,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
   root_xy (f, frame_end_x, frame_y, &root_end_x, &root_y);
   struct glyph_row *root_row = MATRIX_ROW (root->current_matrix, root_y);
 
-  /* Remember current cursor coordinates so that we can restore
-     them at the end.  */
-  COORD save_coords = cursor_coords;
+  w32con_save_cursor();
 
   /* If the root frame displays child frames, we cannot naively
      write to the terminal what the window thinks should be drawn.
@@ -634,7 +658,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
 		  }
 		  break;
 
-		case DRAW_INVERSE_VIDEO: /* see comment in turn_on_face */
+		case DRAW_INVERSE_VIDEO:
 		case DRAW_CURSOR:
 		case DRAW_IMAGE_RAISED:
 		case DRAW_IMAGE_SUNKEN:
@@ -644,8 +668,7 @@ tty_draw_row_with_mouse_face (struct window *w, struct glyph_row *window_row,
 	}
     }
 
-  /* Restore cursor where it was before.  */
-  w32con_move_cursor (f, save_coords.Y, save_coords.X);
+  w32con_restore_cursor();
 }
 
 static void
@@ -961,57 +984,52 @@ turn_on_face (struct frame *f, int face_id)
      set and face->tty_reverse_p. Adding the terminal sequence here
      swaps them back, which is no good. But we still need to handle
      the reversal if they are not set. */
-  if (fg == FACE_TTY_DEFAULT_COLOR && bg == FACE_TTY_DEFAULT_COLOR)
+  if (DEFAULTP (fg) && DEFAULTP (bg))
     SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
 
-  if (tty->TN_max_colors > 0)
+  const char *set_fg = tty->TS_set_foreground;
+  const char *set_bg = tty->TS_set_background;
+  unsigned long fgi = 0, bgi = 0;
+  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
     {
-      const char *set_fg = tty->TS_set_foreground;
-      const char *set_bg = tty->TS_set_background;
-      unsigned long fgi = 0, bgi = 0;
-      if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+      if (!DEFAULTP (fg))
 	{
-	  if (!DEFAULTP (fg))
-	    {
-	      fgi = (fg >= 0  && fg < 8)   ? fg + 30
-		:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
-		:   (fg >= 16 && fg < 256) ? fg
-		: 0;
-	      if (fgi)
-		SSPRINTF (seq, &n, sz, set_fg, fgi);
-	    }
-	  if (!DEFAULTP (bg))
-	    {
-	      bgi = (bg >= 0  && bg < 8)   ? bg + 40
-		:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
-		:   (bg >= 16 && bg < 256) ? bg
-		: 0;
-	      if (bgi)
-		SSPRINTF (seq, &n, sz, set_bg, bgi);
-	    }
+	  fgi = (fg >= 0  && fg < 8)   ? fg + 30
+	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+	    :   (fg >= 16 && fg < 256) ? fg
+	    : 0;
+	  if (fgi) SSPRINTF (seq, &n, sz, set_fg, fgi);	    
 	}
-      else if (tty->TN_max_colors == 16777216)
+      if (!DEFAULTP (bg))
 	{
-	  if (!DEFAULTP (fg))
-	    {
-	      unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
-	      SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
-	    }
-	  if (!DEFAULTP (bg))
-	    {
-	      unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
-	      SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
-	    }
+	  bgi = (bg >= 0  && bg < 8)   ? bg + 40
+	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+	    :   (bg >= 16 && bg < 256) ? bg
+	    : 0;
+	  if (bgi) SSPRINTF (seq, &n, sz, set_bg, bgi);
+	}
+    }
+  else if (tty->TN_max_colors == 16777216)
+    {
+      if (!DEFAULTP (fg))
+	{
+	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
+	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
+	}
+      if (!DEFAULTP (bg))
+	{
+	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
+	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
 	}
     }
 
   if (!w32con_write_vt_seq (seq)
-      && (!DEFAULTP (face->foreground) || !DEFAULTP (face->background)))
+      && (! (DEFAULTP (face->foreground) && DEFAULTP (face->background))))
     {
       int i = 0;
       if (seq)
 	if (seq[0] == '\0')
-	  printf ("seq is empty string\n");
+	  puts ("seq is empty string");
 	else
 	  while (i < SEQMAX && seq[i] != '\0')
 	    {
@@ -1029,16 +1047,21 @@ turn_on_face (struct frame *f, int face_id)
 	printf ("TS_set_foreground not set for this tty\n");
       else
 	{
-	  printf ("TS_set_foreground: %s \n", tty->TS_set_foreground);
+	  puts ("TS_set_foreground:")
+	  puts (tty->TS_set_foreground);
 	  printf ("face->foreground: %lu \n", face->foreground);
 	}
       if (!tty->TS_set_background)
 	printf ("TS_set_background not set for this tty\n");
       else
 	{
+	  puts ("TS_set_background:")
+	  puts (tty->TS_set_foreground);
+	  
 	  printf ("TS_set_background: %s \n", tty->TS_set_background);
 	  printf ("face->background: %lu \n", face->foreground);
 	}
+      printf ("LastError = 0x%lx\n", GetLastError ());
       fflush (stdout);
       exit (1);
     }
