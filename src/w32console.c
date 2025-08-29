@@ -561,7 +561,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	  w32con_hide_cursor (FRAME_TTY (f));
 	  turn_on_face (f, face_id);
 	  WriteConsole (cur_screen, conversion_buffer,
-			coding->produced, &r, NULL);
+			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
 	  w32con_show_cursor(FRAME_TTY (f));
@@ -1041,7 +1041,7 @@ turn_on_face (struct frame *f, int face_id)
 	printf ("seq is null");
 
       printf ("Failed to write face seq: %s \n", seq);
-      printf ("tty->TN_max_colors: %lu", tty->TN_max_colors);
+      printf ("tty->TN_max_colors: %d", tty->TN_max_colors);
       printf ("Face: %d", face->id);
       if (!tty->TS_set_foreground)
 	printf ("TS_set_foreground not set for this tty\n");
