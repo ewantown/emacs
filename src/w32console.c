@@ -1059,7 +1059,7 @@ turn_on_face (struct frame *f, int face_id)
 	  puts (tty->TS_set_foreground);
 	  
 	  printf ("TS_set_background: %s \n", tty->TS_set_background);
-	  printf ("face->background: %lu \n", face->foreground);
+	  printf ("face->background: %lu \n", face->background);
 	}
       printf ("LastError = 0x%lx\n", GetLastError ());
       fflush (stdout);
