@@ -1034,12 +1034,12 @@ turn_on_face (struct frame *f, int face_id)
 	}
       if (!tty->TS_set_background)
 	{
-	  printf ("TS_set_background not set for this tty\n");
-	  printf ("face->background: %lu \n", face->foreground);
+	  printf ("TS_set_background not set for this tty\n");	  
 	}
       else
 	{
 	  printf ("TS_set_background: %s \n", tty->TS_set_background);
+	  printf ("face->background: %lu \n", face->foreground);
 	}
       fflush (stdout);
       exit (1);
