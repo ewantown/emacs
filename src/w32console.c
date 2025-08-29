@@ -396,13 +396,37 @@ w32con_insert_glyphs (struct frame *f, register struct glyph *start,
     }
 }
 
+// For debugging
+static void
+vt_seq_error (char *seq)
+{
+  int i = 0; int j = 0;
+  if (seq)
+    if (seq[0] == '\0') seq = "<empty>";
+    else
+      while (i < SEQMAX)
+	{
+	  if (seq[i] == '\x1b') seq[i] = '#';
+	  if (seq[i] ==    '%') seq[i] = '_';
+	  if (seq[i] ==   '\0') { j++; break; }
+	  i++;
+	}
+  else seq = "<null>";
+  printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
+  printf ("LastError: 0x%lx\n", GetLastError ());
+  fflush (stdout);
+  exit (1);
+}
+
 static int
 w32con_write_vt_seq (char *seq)
 {
   char buf[SEQMAX];
-  DWORD n = 0;
+  DWORD n = 0, k = 0;
   SSPRINTF (buf, &n, SEQMAX, seq, NULL);
-  return n && WriteConsoleA (current_buffer, (LPCSTR) buf, n, &n, NULL);
+  WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
+  if (n && !k) vt_seq_error (seq); // TODO - delete
+  return k;
 }
 
 static void // TODO delete
@@ -740,7 +764,9 @@ w32con_set_terminal_modes (struct terminal *t)
 
   DWORD out_mode;
   GetConsoleMode (cur_screen, &out_mode);
+  out_mode |= ENABLE_PROCESSED_OUTPUT;
   out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  out_mode |= DISABLE_NEWLINE_AUTO_RETURN;
   w32_use_virtual_terminal_sequences = SetConsoleMode (cur_screen, out_mode);
   if (w32_use_virtual_terminal_sequences)
     t->display_info.tty->cursor_hidden = 0;
@@ -1022,51 +1048,8 @@ turn_on_face (struct frame *f, int face_id)
 	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
 	}
     }
-
-  if (!w32con_write_vt_seq (seq)
-      && (! (DEFAULTP (face->foreground) && DEFAULTP (face->background))))
-    {
-      int i = 0;
-      if (seq)
-	if (seq[0] == '\0')
-	  puts ("seq is empty string");
-	else
-	  while (i < SEQMAX && seq[i] != '\0')
-	    {
-	      if (seq[i] == '\x1b') seq[i] = '#';
-	      if (seq[i] ==    '%') seq[i] = '_';
-	      i++;
-	    }
-      else
-	printf ("seq is null");
-
-      printf ("Failed to write face seq: %s \n", seq);
-      printf ("tty->TN_max_colors: %d", tty->TN_max_colors);
-      printf ("Face: %d", face->id);
-      if (!tty->TS_set_foreground)
-	printf ("TS_set_foreground not set for this tty\n");
-      else
-	{
-	  puts ("TS_set_foreground:");
-	  puts (tty->TS_set_foreground);
-	  printf ("face->foreground: %lu \n", face->foreground);
-	}
-      if (!tty->TS_set_background)
-	printf ("TS_set_background not set for this tty\n");
-      else
-	{
-	  puts ("TS_set_background:");
-	  puts (tty->TS_set_foreground);
-	  
-	  printf ("TS_set_background: %s \n", tty->TS_set_background);
-	  printf ("face->background: %lu \n", face->background);
-	}
-      printf ("LastError = 0x%lx\n", GetLastError ());
-      fflush (stdout);
-      exit (1);
-    }
+  w32con_write_vt_seq (seq);
 }
-
 
 static void
 turn_off_face_OLD (struct frame *f, int face_id)
