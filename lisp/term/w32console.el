@@ -145,26 +145,28 @@
   "Set up initial face color scheme dynamically based on the number of
 display colors and the value of `w32-use-virtual-terminal-sequences'."
   (tty-color-clear)
-  (if w32-use-virtual-terminal-sequences
-      (let ((ncolors (display-color-cells)))
+  (let ((ncolors (display-color-cells)))
+    (if w32-use-virtual-terminal-sequences
         (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
               ((= ncolors 265       (w32con-define-256-colors)))
-              (t                    (w32con-define-base-colors))))
-    (w32con-define-base-colors))
-  (clear-face-cache)
-  ;; Figure out what are the colors of the console window, and set up
-  ;; the background-mode correspondingly.
-  (let* ((screen-color (get-screen-color))
-         (bg (cadr screen-color))
-         (descr (tty-color-by-index bg))
-         r g b bg-mode)
-    (setq r (nth 2 descr)
-          g (nth 3 descr)
-          b (nth 4 descr))
-    (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
-        (setq bg-mode 'dark)
-      (setq bg-mode 'light))
-    (set-terminal-parameter nil 'background-mode bg-mode))
+              (t                    (w32con-define-base-colors)))
+      (w32con-define-base-colors))
+    (clear-face-cache)
+    ;; Figure out what are the colors of the console window, and set up
+    ;; the background-mode correspondingly.
+    (let* ((screen-color (get-screen-color))
+           (base-index (cadr screen-color))
+           (bg-pixel (w32con-get-pixel base-index))
+           (bg (if (= ncolors 16777216) bg-pixel base-index))
+           (descr (tty-color-by-index bg))
+           r g b bg-mode)
+      (setq r (nth 2 descr)
+            g (nth 3 descr)
+            b (nth 4 descr))
+      (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
+          (setq bg-mode 'dark)
+        (setq bg-mode 'light))
+      (set-terminal-parameter nil 'background-mode bg-mode)))
   (tty-set-up-initial-frame-faces))
 
 (provide 'term/w32console)

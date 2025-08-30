@@ -934,8 +934,8 @@ turn_on_face (struct frame *f, int face_id)
   else if (tty->TN_max_colors == 16777216)
     {
       /* need to convert defaulted values to pixel indices */
-      if (fg == fg_normal) fg = XFIXNUM calln (Qtty_get_pixel, fg);
-      if (bg == fg_normal) bg = XFIXNUM calln (Qtty_get_pixel, bg);
+      if (fg == fg_normal) fg = get_pixel(fg);
+      if (bg == bg_normal) bg = get_pixel(bg);
 
       /* fg and bg are pixel values - decompose to rgb triples */
       unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
@@ -960,6 +960,15 @@ turn_off_face (struct frame *f, int face_id)
 
   w32con_write_vt_seq (seq);
 }
+
+/* returns the pixel value for the given index into VT base color map */
+static unsigned long
+get_pixel (unsigned long index)
+{
+  Lisp_Object pix = calln (Qw32con_get_pixel, index);
+  return (unsigned long) XFIXNUM (pix);
+}
+
 
 /***********************************************************************
                              Initialization
