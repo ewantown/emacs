@@ -63,6 +63,7 @@ static void w32con_save_cursor (void);
 static void w32con_restore_cursor (void);
 void w32con_show_cursor (void);
 void w32con_hide_cursor (void);
+
 static unsigned long get_pixel (unsigned long index);
 
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
@@ -967,7 +968,7 @@ static unsigned long
 get_pixel (unsigned long index)
 {
   unsigned int i = (unsigned int) index;
-  Lisp_Object pix =  calln (Qw32con_get_pixel, make_ufixnum (i));
+  Lisp_Object pix =  safe_calln (Qw32con_get_pixel, make_ufixnum (i));
   return (unsigned long) XUFIXNUM (pix);
 }
 
