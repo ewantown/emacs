@@ -16,6 +16,23 @@ You can narrow news to a specific version by calling 'view-emacs-news'
 with a prefix argument or by typing 'C-u C-h C-n'.
 
 
+* Changes in Emacs 30.3
+** Windows Terminal now displays 24-bit RGB.
+Previously, Emacs terminal sessions in Windows Terminal and Windows
+Console supported display of 16 colors, via the Windows Console API.
+There is now support in Windows Terminal for 256 and 24-bit RGB color,
+by emitting Virtual Terminal Sequences modelled on the VT100 and Xterm.
+This aligns with Microsoft's long-term roadmap and is a first step in
+moving Emacs sessions over to the newer Windows Terminal interface.
+
+This new functionality will be enabled automatically when supported.
+It defaults to 24-bit RGB color, but can be set to 8, 16, 256, or
+'24bit' by passing the '--color' flag or setting the 'tty-color-mode'
+frame parameter. It can be disabled by setting the variable
+'w32-use-virtual-terminal-sequences'. The older (16-color) interface
+will still be used in Windows Console and on pre-Win10 systems.
+
+
 * Changes in Emacs 30.2
 Emacs 30.2 is a bug-fix release with no new features.
 
