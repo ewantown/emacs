@@ -966,8 +966,8 @@ turn_off_face (struct frame *f, int face_id)
 static unsigned long
 get_pixel (unsigned long index)
 {
-  Lisp_Object pix = calln (Qw32con_get_pixel, index);
-  return (unsigned long) XFIXNUM (pix);
+  Lisp_Object pix =  calln (Qw32con_get_pixel, make_ufixnum (index));
+  return (unsigned long) XUFIXNUM (pix);
 }
 
 /***********************************************************************
