@@ -28,7 +28,7 @@ moving Emacs sessions over to the newer Windows Terminal interface.
 This new functionality will be enabled automatically when supported.
 It defaults to 24-bit RGB color, but can be set to 8, 16, 256, or
 '24bit' by passing the '--color' flag or setting the 'tty-color-mode'
-frame parameter. It can be disabled by setting the variable
+frame parameter. It can be disabled/enabled by setting the variable
 'w32-use-virtual-terminal-sequences'. The older (16-color) interface
 will still be used in Windows Console and on pre-Win10 systems.
 
