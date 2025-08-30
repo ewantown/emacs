@@ -1238,13 +1238,13 @@ See `w32con-set-up-initial-frame-faces', which should be called after setting th
 manually in a running session. */);
   w32_use_virtual_terminal_sequences = 0;
 
-  DEFVAR_BOOL (w32_inhibit_redisplay_during_update,
-	       "w32-inhibit-redisplay-during-update",
+  DEFVAR_BOOL ("w32-inhibit-redisplay-during-update",
+	       w32_inhibit_redisplay_during_update,
 	       doc: /* Internal variable used to control cursor flickering. */);
   w32_inhibit_redisplay_during_update = 0;
 
-  DEFVAR_BOOL (w32_hide_cursor_during_update,
-	       "w32-hide-cursor-during-update",
+  DEFVAR_BOOL ("w32-hide-cursor-during-update",
+	       w32_hide_cursor_during_update,
 	       doc: /* Internal variable used to control cursor flickering. */);
   w32_hide_cursor_during_update = 0;
 
