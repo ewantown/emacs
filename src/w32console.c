@@ -743,7 +743,10 @@ w32con_update_begin (struct frame * f)
     }
 
   /* Hide cursor for whole update to prevent cursor flashing */
-  w32con_hide_cursor ();
+  if (w32con_hide_cursor_during_update)
+    w32con_hide_cursor ();
+  if (w32con_inhibit_redisplay_during_update)
+    specbind (Qinhibit_redisplay, Qt);
 }
 
 static void
@@ -755,6 +758,9 @@ w32con_update_end (struct frame * f)
     w32con_show_cursor ();
   else
     w32con_hide_cursor ();
+
+  if (w32con_inhibit_redisplay_during_update)
+    specbind (Qinhibit_redisplay, Qnil);
 }
 
 /***********************************************************************
@@ -1241,4 +1247,16 @@ manually in a running session. */);
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);
+
+  DEFVAR_BOOL (Qw32con_inhibit_redisplay_during_update,
+	       "w32con-inhibit-redisplay-during-update",
+	       doc: /* Internal variable used to control cursor flickering. */);
+  w32con_inhibit_redisplay_during_update = 0;
+
+  DEFVAR_BOOL (Qw32con_hide_cursor_during_update,
+	       "w32con-hide-cursor-during-update",
+	       doc: /* Internal variable used to control cursor flickering. */);
+  w32con_hide_cursor_during_update = 0;
+
+  
 }
