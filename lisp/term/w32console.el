@@ -82,6 +82,13 @@
                    color  (car colors)))
            nbase)))
 
+;; Note: tty-color-define swaps passed index for pixel on 24bit terminal
+;; So, we need this function to "recover" the terminal's native mapping
+(defun w32con-get-pixel (index)
+  "Convert a base-color index into a pixel (index into 24bit map)"
+  (let ((color (nth index w32-tty-virtual-terminal-base-colors)))
+    (or (tty-color-24bit (cddr color)) index)))
+
 (defun w32con-define-256-colors ()
   "Defines 256-color space for w32 console."
   (let ((r 0) (b 0) (g 0)

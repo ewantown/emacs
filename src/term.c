@@ -345,10 +345,10 @@ tty_hide_cursor (struct tty_display_info *tty)
 {
   if (tty->cursor_hidden == 0)
     {
-      tty->cursor_hidden = 1;
 #ifdef WINDOWSNT
       w32con_hide_cursor ();
 #else
+      tty->cursor_hidden = 1;
       OUTPUT_IF (tty, tty->TS_cursor_invisible);
 #endif
     }
@@ -362,10 +362,10 @@ tty_show_cursor (struct tty_display_info *tty)
 {
   if (tty->cursor_hidden)
     {
-      tty->cursor_hidden = 0;
 #ifdef WINDOWSNT
       w32con_show_cursor ();
 #else
+      tty->cursor_hidden = 0;
       OUTPUT_IF (tty, tty->TS_cursor_normal);
       if (visible_cursor)
         OUTPUT_IF (tty, tty->TS_cursor_visible);

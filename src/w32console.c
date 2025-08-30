@@ -888,6 +888,11 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
 
+  // if either out of range, set both to values retrieved from terminal
+  if (DEFAULTP (fg)) fg = fg_normal;
+  if (DEFAULTP (bg)) bg = bg_normal;
+
+  // construct combined VT sequence for face attributes
   DWORD n = 0;
   size_t sz = SEQMAX;
   char seq[sz];
@@ -907,38 +912,36 @@ turn_on_face (struct frame *f, int face_id)
 
   const char *set_fg = tty->TS_set_foreground;
   const char *set_bg = tty->TS_set_background;
-  unsigned long fgi = 0, bgi = 0;
-  if (tty->TN_max_colors == 16 || tty->TN_max_colors == 256)
+  if (tty->TN_max_colors == 8  ||
+      tty->TN_max_colors == 16 ||
+      tty->TN_max_colors == 256)
     {
-      if (!DEFAULTP (fg))
-	{
-	  fgi = (fg >= 0  && fg < 8)   ? fg + 30
-	    :   (fg >= 8  && fg < 16)  ? fg - 8 + 90
-	    :   (fg >= 16 && fg < 256) ? fg
-	    : 0;
-	  if (fgi) SSPRINTF (seq, &n, sz, set_fg, fgi);	    
-	}
-      if (!DEFAULTP (bg))
-	{
-	  bgi = (bg >= 0  && bg < 8)   ? bg + 40
-	    :   (bg >= 8  && bg < 16)  ? bg - 8 + 100
-	    :   (bg >= 16 && bg < 256) ? bg
-	    : 0;
-	  if (bgi) SSPRINTF (seq, &n, sz, set_bg, bgi);
-	}
+      /* indices into Microsoft-defined colors (see link at top) */
+      unsigned long fgi = 0, bgi = 0;
+
+      fgi = (fg >= 0  && fg < 8)   ? fg + 30
+	:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+	:   (fg >= 16 && fg < 256) ? fg
+	: 0;
+      if (fgi) SSPRINTF (seq, &n, sz, set_fg, fgi);
+
+      bgi = (bg >= 0  && bg < 8)   ? bg + 40
+	:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+	:   (bg >= 16 && bg < 256) ? bg
+	: 0;
+      if (bgi) SSPRINTF (seq, &n, sz, set_bg, bgi);
     }
   else if (tty->TN_max_colors == 16777216)
     {
-      if (!DEFAULTP (fg))
-	{
-	  unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
-	  SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
-	}
-      if (!DEFAULTP (bg))
-	{
-	  unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
-	  SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
-	}
+      /* need to convert defaulted values to pixel indices */
+      if (fg == fg_normal) fg = XFIXNUM calln (Qtty_get_pixel, fg);
+      if (bg == fg_normal) bg = XFIXNUM calln (Qtty_get_pixel, bg);
+
+      /* fg and bg are pixel values - decompose to rgb triples */
+      unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
+      unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
+      SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
+      SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
     }
   w32con_write_vt_seq (seq);
 }
@@ -1220,6 +1223,9 @@ manually in a running session. */);
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
 
+  DEFSYM (Qw32con_get_pixel,
+	  "w32con-get-pixel");
+  
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);
