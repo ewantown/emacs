@@ -478,13 +478,10 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
-	      w32con_save_cursor ();
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
-	      w32con_restore_cursor ();
-
 	      cursor_coords.X += coding->produced;
 	      /* WriteConsole advances the cursor */
 	    }
@@ -737,12 +734,16 @@ static void
 w32con_update_begin (struct frame * f)
 {
   current_tty = FRAME_TTY (f);
+
   if (!w32_use_virtual_terminal_sequences
       && current_tty->TN_max_colors > 16)
     {
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
+
+  /* Hide cursor for whole update to prevent cursor flashing */
+  w32con_hide_cursor ();
 }
 
 static void
