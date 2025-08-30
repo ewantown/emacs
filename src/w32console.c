@@ -206,7 +206,7 @@ w32con_save_cursor (void)
 void
 w32con_restore_cursor (void)
 {
-  cursor_coords = saved_coords ? saved_coords : cursor_coords;
+  cursor_coords = saved_coords;
   if (w32_use_virtual_terminal_sequences)
     w32con_write_vt_seq ((char *) "\x1b[8");
   else
@@ -747,7 +747,6 @@ static void
 w32con_update_end (struct frame * f)
 {
   w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
-  struct tty_display_info *tty = FRAME_TTY (f);
   if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
     w32con_show_cursor ();
