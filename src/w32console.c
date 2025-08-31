@@ -38,6 +38,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "w32term.h"
 #include "w32common.h"	/* for os_subtype */
 #include "w32inevt.h"
+#include "blockinput.h"
 
 #ifdef WINDOWSNT
 #include "w32.h"	/* for syms_of_ntterm */
