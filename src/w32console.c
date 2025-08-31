@@ -143,7 +143,8 @@ w32con_write_vt_seq (char *seq)
   char buf[SEQMAX];
   DWORD n = 0, k = 0;
   SSPRINTF (buf, &n, SEQMAX, seq, NULL);
-  int _ = n && WriteConsoleA (alt_screen, (LPCSTR) buf, n, &k, NULL);
+  // int _ = n && WriteConsoleA (alt_screen, (LPCSTR) buf, n, &k, NULL);
+  int _ = n && WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
   if (n && !k) vt_seq_error (seq); // TODO - delete
   return k;
 }
@@ -271,6 +272,11 @@ static BOOL  ceol_initialized = FALSE;
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
+  if (w32_use_virtual_terminal_sequences)
+    {
+      w32con_write_vt_seq("\x1b[0K");
+      return;
+    }
   /* Time to reallocate our "empty row"?  With today's large screens,
      it is not unthinkable to see TTY frames well in excess of
      80-character width.  */
@@ -484,7 +490,9 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	  if (w32_use_virtual_terminal_sequences)
 	    {
 	      turn_on_face (f, face_id);
-	      WriteConsole (alt_screen, conversion_buffer,
+	      /* WriteConsole (alt_screen, conversion_buffer, */
+	      /* 		    coding->produced, &r, NULL); */
+	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
 	      cursor_coords.X += coding->produced;
@@ -549,7 +557,9 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	{
 	  w32con_save_cursor ();
 	  turn_on_face (f, face_id);
-	  WriteConsole (alt_screen, conversion_buffer,
+	  /* WriteConsole (alt_screen, conversion_buffer, */
+	  /* 		coding->produced, &written, NULL); */
+	  WriteConsole (cur_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
@@ -742,7 +752,7 @@ w32con_set_terminal_modes (struct terminal *t)
   if (w32_use_virtual_terminal_sequences)
     {
       // TODO - test
-      SetConsoleMode(alt_screen, out_mode);
+      // SetConsoleMode(alt_screen, out_mode);
       t->display_info.tty->cursor_hidden = 0;
     }
 }
@@ -780,13 +790,13 @@ w32con_update_end (struct frame * f)
     w32con_hide_cursor ();
 
   // TODO - test
-  if (w32_use_virtual_terminal_sequences)
-    {
-      SetConsoleActiveScreenBuffer (alt_screen);
-      HANDLE tmp_screen = cur_screen;
-      cur_screen = alt_screen;
-      alt_screen = tmp_screen;
-    }
+  /* if (w32_use_virtual_terminal_sequences) */
+  /*   { */
+  /*     SetConsoleActiveScreenBuffer (alt_screen); */
+  /*     HANDLE tmp_screen = cur_screen; */
+  /*     cur_screen = alt_screen; */
+  /*     alt_screen = tmp_screen; */
+  /*   } */
 }
 
 /***********************************************************************
@@ -1099,13 +1109,13 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
 #endif
 
   // TODO - test
-  if (w32_use_virtual_terminal_sequences)
-    {
-      alt_screen = CreateConsoleScreenBuffer (GENERIC_READ | GENERIC_WRITE,
-					      0, NULL,
-					      CONSOLE_TEXTMODE_BUFFER,
-					      NULL);
-    }
+  /* if (w32_use_virtual_terminal_sequences) */
+  /*   { */
+  /*     alt_screen = CreateConsoleScreenBuffer (GENERIC_READ | GENERIC_WRITE, */
+  /* 					      0, NULL, */
+  /* 					      CONSOLE_TEXTMODE_BUFFER, */
+  /* 					      NULL); */
+  /*   } */
 
   /* Respect setting of LINES and COLUMNS environment variables.  */
   {
@@ -1133,8 +1143,8 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
 	SetConsoleScreenBufferSize (cur_screen, new_size);
 
 	// TODO - test
-	if (w32_use_virtual_terminal_sequences)
-	  SetConsoleScreenBufferSize (alt_screen, new_size);
+	/* if (w32_use_virtual_terminal_sequences) */
+	/*   SetConsoleScreenBufferSize (alt_screen, new_size); */
 
 	/* Set the window size to match the buffer dimension.  */
 	new_win_dims.Top = 0;
@@ -1145,8 +1155,8 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
 
 
 	// TODO - test
-	if (w32_use_virtual_terminal_sequences)
-	  SetConsoleWindowInfo (alt_screen, TRUE, &new_win_dims);
+	/* if (w32_use_virtual_terminal_sequences) */
+	/*   SetConsoleWindowInfo (alt_screen, TRUE, &new_win_dims); */
       }
   }
 
