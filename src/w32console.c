@@ -103,8 +103,6 @@ ctrl_c_handler (unsigned long type)
 	  && (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT));
 }
 
-#define SEQMAX 512 /* Arbitrary limit on VT sequence size */
-
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
     if (fmt)								\
@@ -115,6 +113,8 @@ ctrl_c_handler (unsigned long type)
   (p == FACE_TTY_DEFAULT_COLOR						\
    || p == FACE_TTY_DEFAULT_FG_COLOR					\
    || p == FACE_TTY_DEFAULT_BG_COLOR)
+
+#define SEQMAX 512 /* Arbitrary limit on VT sequence size */
 
 /* For debugging */
 static void
@@ -133,7 +133,7 @@ vt_seq_error (char *seq)
 	}
   else seq = "<null>";
   printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
-  printf ("LastError: 0x%dx\n", GetLastError ());
+  printf ("LastError: 0x%ldx\n", GetLastError ());
   fflush (stdout);
   exit (1);
 }
@@ -1279,10 +1279,10 @@ manually in a running session. */);
 	       doc: /* Internal variable used to control cursor flickering. */);
   w32_hide_cursor_during_update = 0;
 
-  DEFVAR_BOOL ("w32-vt-seq-experimental",
-	       w32_vt_seq_experimental,
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental",
+	       w32_use_vt_seq_experimental,
 	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_vt_seq_experimental = 0;
+  w32_use_vt_seq_experimental = 0;
 
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
