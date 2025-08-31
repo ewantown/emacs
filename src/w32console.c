@@ -438,13 +438,10 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
   LPCSTR conversion_buffer;
   struct coding_system *coding;
 
-  /* Hide cursor for whole update to prevent cursor flicker */
-  if (w32_hide_cursor_during_update)
-    w32con_hide_cursor ();
-
   Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
   if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = Qt;
+    // Vinhibit_redisplay = Qt;
+    specbind (Qinhibit_redisplay, Qt);
 
   if (len <= 0)
     return;
@@ -515,7 +512,8 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
     }
 
   if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = prev_inhibit_redisplay;
+    // Vinhibit_redisplay = prev_inhibit_redisplay;
+    specbind (Qinhibit_redisplay, prev_inhibit_redisplay);
 }
 
 /* Used for mouse highlight.  */
@@ -529,8 +527,9 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   DWORD filled, written;
 
   /* Hide cursor for whole update to prevent cursor flicker */
-  if (w32_hide_cursor_during_update)
-    w32con_hide_cursor ();
+  if (w32_inhibit_redisplay_during_update)
+    // Vinhibit_redisplay = Qt;
+    specbind (Qinhibit_redisplay, Qt);
 
   Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
   if (w32_inhibit_redisplay_during_update)
@@ -581,7 +580,8 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	}
     }
   if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = prev_inhibit_redisplay;
+    // Vinhibit_redisplay = prev_inhibit_redisplay;
+    specbind (Qinhibit_redisplay, prev_inhibit_redisplay);
 }
 
 /* Implementation of draw_row_with_mouse_face for W32 console.  */
@@ -762,6 +762,10 @@ w32con_update_begin (struct frame * f)
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
+
+  /* Hide cursor for whole update to prevent cursor flicker */
+  if (w32_hide_cursor_during_update)
+    w32con_hide_cursor ();
 }
 
 static void
