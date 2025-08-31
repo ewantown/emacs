@@ -143,7 +143,7 @@ w32con_write_vt_seq (char *seq)
   char buf[SEQMAX];
   DWORD n = 0, k = 0;
   SSPRINTF (buf, &n, SEQMAX, seq, NULL);
-  int _ = n && WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
+  int _ = n && WriteConsoleA (alt_screen, (LPCSTR) buf, n, &k, NULL);
   if (n && !k) vt_seq_error (seq); // TODO - delete
   return k;
 }
@@ -525,11 +525,6 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   LPCSTR conversion_buffer;
   struct coding_system *coding;
   DWORD filled, written;
-
-  /* Hide cursor for whole update to prevent cursor flicker */
-  if (w32_inhibit_redisplay_during_update)
-    // Vinhibit_redisplay = Qt;
-    specbind (Qinhibit_redisplay, Qt);
 
   Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
   if (w32_inhibit_redisplay_during_update)
