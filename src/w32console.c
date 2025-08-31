@@ -70,7 +70,7 @@ extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
-static HANDLE	prev_screen, cur_screen;
+static HANDLE	prev_screen, cur_screen, alt_screen;
 static WORD	char_attr_normal;
 static WORD	bg_normal;
 static WORD	fg_normal;
@@ -438,10 +438,10 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
   LPCSTR conversion_buffer;
   struct coding_system *coding;
 
+  // TODO - test
   Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
   if (w32_inhibit_redisplay_during_update)
-    // Vinhibit_redisplay = Qt;
-    specbind (Qinhibit_redisplay, Qt);
+    Vinhibit_redisplay = Qt;
 
   if (len <= 0)
     return;
@@ -484,7 +484,7 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	  if (w32_use_virtual_terminal_sequences)
 	    {
 	      turn_on_face (f, face_id);
-	      WriteConsole (cur_screen, conversion_buffer,
+	      WriteConsole (alt_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
 	      cursor_coords.X += coding->produced;
@@ -511,9 +511,9 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
       string += n;
     }
 
+  // TODO - test
   if (w32_inhibit_redisplay_during_update)
-    // Vinhibit_redisplay = prev_inhibit_redisplay;
-    specbind (Qinhibit_redisplay, prev_inhibit_redisplay);
+    Vinhibit_redisplay = prev_inhibit_redisplay;
 }
 
 /* Used for mouse highlight.  */
@@ -554,7 +554,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	{
 	  w32con_save_cursor ();
 	  turn_on_face (f, face_id);
-	  WriteConsole (cur_screen, conversion_buffer,
+	  WriteConsole (alt_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
@@ -579,9 +579,10 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 				       filled, start_coords, &written);
 	}
     }
+
+  // TODO - test
   if (w32_inhibit_redisplay_during_update)
-    // Vinhibit_redisplay = prev_inhibit_redisplay;
-    specbind (Qinhibit_redisplay, prev_inhibit_redisplay);
+    Vinhibit_redisplay = prev_inhibit_redisplay;
 }
 
 /* Implementation of draw_row_with_mouse_face for W32 console.  */
@@ -744,7 +745,11 @@ w32con_set_terminal_modes (struct terminal *t)
   out_mode |= DISABLE_NEWLINE_AUTO_RETURN;
   w32_use_virtual_terminal_sequences = SetConsoleMode (cur_screen, out_mode);
   if (w32_use_virtual_terminal_sequences)
-    t->display_info.tty->cursor_hidden = 0;
+    {
+      // TODO - test
+      SetConsoleMode(alt_screen, out_mode);
+      t->display_info.tty->cursor_hidden = 0;
+    }
 }
 
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
@@ -764,6 +769,7 @@ w32con_update_begin (struct frame * f)
     }
 
   /* Hide cursor for whole update to prevent cursor flicker */
+  // TODO - test
   if (w32_hide_cursor_during_update)
     w32con_hide_cursor ();
 }
@@ -777,6 +783,15 @@ w32con_update_end (struct frame * f)
     w32con_show_cursor ();
   else
     w32con_hide_cursor ();
+
+  // TODO - test
+  if (w32_use_virtual_terminal_sequences)
+    {
+      SetConsoleActiveScreenBuffer (alt_screen);
+      HANDLE tmp_screen = cur_screen;
+      cur_screen = alt_screen;
+      alt_screen = tmp_screen;
+    }
 }
 
 /***********************************************************************
@@ -1088,6 +1103,15 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
   GetConsoleCursorInfo (prev_screen, &prev_console_cursor);
 #endif
 
+  // TODO - test
+  if (w32_use_virtual_terminal_sequences)
+    {
+      alt_screen = CreateConsoleScreenBuffer (GENERIC_READ | GENERIC_WRITE,
+					      0, NULL,
+					      CONSOLE_TEXTMODE_BUFFER,
+					      NULL);
+    }
+
   /* Respect setting of LINES and COLUMNS environment variables.  */
   {
     char * lines = getenv ("LINES");
@@ -1113,12 +1137,21 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
 
 	SetConsoleScreenBufferSize (cur_screen, new_size);
 
+	// TODO - test
+	if (w32_use_virtual_terminal_sequences)
+	  SetConsoleScreenBufferSize (alt_screen, new_size);
+
 	/* Set the window size to match the buffer dimension.  */
 	new_win_dims.Top = 0;
 	new_win_dims.Left = 0;
 	new_win_dims.Bottom = new_size.Y - 1;
 	new_win_dims.Right = new_size.X - 1;
 	SetConsoleWindowInfo (cur_screen, TRUE, &new_win_dims);
+
+
+	// TODO - test
+	if (w32_use_virtual_terminal_sequences)
+	  SetConsoleWindowInfo (alt_screen, TRUE, &new_win_dims);
       }
   }
 
