@@ -28,7 +28,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 #include <stdio.h>
-#include <stdlib.>
+#include <stdlib.h>
 #include <windows.h>
 
 #include "lisp.h"
