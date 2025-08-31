@@ -990,6 +990,7 @@ turn_on_face (struct frame *f, int face_id)
 static void
 turn_off_face (struct frame *f, int face_id)
 {
+  struct tty_display_info *tty = FRAME_TTY (f);
   w32con_write_vt_seq (tty->TS_exit_attribute_mode);
 }
 
