@@ -272,11 +272,6 @@ static BOOL  ceol_initialized = FALSE;
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      w32con_write_vt_seq("\x1b[0K");
-      return;
-    }
   /* Time to reallocate our "empty row"?  With today's large screens,
      it is not unthinkable to see TTY frames well in excess of
      80-character width.  */
@@ -444,11 +439,6 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
   LPCSTR conversion_buffer;
   struct coding_system *coding;
 
-  // TODO - test
-  Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
-  if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = Qt;
-
   if (len <= 0)
     return;
 
@@ -484,19 +474,17 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	coding->mode |= CODING_MODE_LAST_BLOCK;
 
       conversion_buffer = (LPCSTR) encode_terminal_code (string, n, coding);
-
       if (coding->produced > 0)
 	{
 	  if (w32_use_virtual_terminal_sequences)
 	    {
+	      block_input ();
 	      turn_on_face (f, face_id);
-	      /* WriteConsole (alt_screen, conversion_buffer, */
-	      /* 		    coding->produced, &r, NULL); */
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
-	      turn_off_face (f, face_id);
 	      cursor_coords.X += coding->produced;
-	      /* WriteConsole advances the cursor */
+	      turn_off_face (f, face_id);
+	      unblock_input ();
 	    }
 	  else
 	    {
@@ -518,11 +506,8 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
       len -= n;
       string += n;
     }
-
-  // TODO - test
-  if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = prev_inhibit_redisplay;
 }
+
 
 /* Used for mouse highlight.  */
 static void
@@ -533,10 +518,6 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   LPCSTR conversion_buffer;
   struct coding_system *coding;
   DWORD filled, written;
-
-  Lisp_Object prev_inhibit_redisplay = Vinhibit_redisplay;
-  if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = Qt;
 
   if (len <= 0)
     return;
@@ -553,27 +534,26 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   conversion_buffer = (LPCSTR) encode_terminal_code (string, len, coding);
   if (coding->produced > 0)
     {
+      COORD start_coords;
+      start_coords.X = x;
+      start_coords.Y = y;
+
       if (w32_use_virtual_terminal_sequences)
 	{
+	  block_input ();
 	  w32con_save_cursor ();
+	  w32con_move_cursor (f, y, x);
 	  turn_on_face (f, face_id);
-	  /* WriteConsole (alt_screen, conversion_buffer, */
-	  /* 		coding->produced, &written, NULL); */
 	  WriteConsole (cur_screen, conversion_buffer,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
-
-	  cursor_coords.X += coding->produced;
-	  /* WriteConsole advances cursor */
+	  unblock_input ();
 	}
       else
 	{
 	  /* Compute the character attributes corresponding to the face.  */
 	  DWORD char_attr = w32_face_attributes (f, face_id);
-	  COORD start_coords;
-	  start_coords.X = x;
-	  start_coords.Y = y;
 
 	  /* Set the attribute for these characters.  */
 	  FillConsoleOutputAttribute (cur_screen, char_attr,
@@ -584,10 +564,6 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 				       filled, start_coords, &written);
 	}
     }
-
-  // TODO - test
-  if (w32_inhibit_redisplay_during_update)
-    Vinhibit_redisplay = prev_inhibit_redisplay;
 }
 
 /* Implementation of draw_row_with_mouse_face for W32 console.  */
@@ -773,8 +749,9 @@ w32con_update_begin (struct frame * f)
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
 
-  /* Hide cursor for whole update to prevent cursor flicker */
   // TODO - test
+  if (w32_inhibit_redisplay_during_update)
+    Vinhibit_redisplay = Qt;
   if (w32_hide_cursor_during_update)
     w32con_hide_cursor ();
 }
@@ -790,13 +767,8 @@ w32con_update_end (struct frame * f)
     w32con_hide_cursor ();
 
   // TODO - test
-  /* if (w32_use_virtual_terminal_sequences) */
-  /*   { */
-  /*     SetConsoleActiveScreenBuffer (alt_screen); */
-  /*     HANDLE tmp_screen = cur_screen; */
-  /*     cur_screen = alt_screen; */
-  /*     alt_screen = tmp_screen; */
-  /*   } */
+  if (w32_inhibit_redisplay_during_update)
+    Vinhibit_redisplay = Qnil;
 }
 
 /***********************************************************************
@@ -944,13 +916,17 @@ turn_on_face (struct frame *f, int face_id)
   sz--;
 
   if (face->tty_bold_p)
-    SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL);
+    w32con_write_vt_seq(tty->TS_enter_bold_mode);
+    /* SSPRINTF (seq, &n, sz, tty->TS_enter_bold_mode, NULL); */
   if (face->tty_italic_p)
-    SSPRINTF (seq, &n, sz, tty->TS_enter_italic_mode, NULL);
+    w32con_write_vt_seq(tty->TS_enter_italic_mode);
+    /* SSPRINTF (seq, &n, sz, tty->TS_enter_italic_mode, NULL); */
   if (face->tty_strike_through_p)
-    SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL);
+    w32con_write_vt_seq(tty->TS_enter_strike_through_mode);
+    /* SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL); */
   if (face->underline != 0)
-    SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
+    w32con_write_vt_seq(tty->TS_enter_underline_mode);
+    /* SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL); */
   /* Note: xfaces.c swaps the values of fg and bg when fg and bg are
      set and face->tty_reverse_p. Adding the terminal sequence contained
      in tty->TS_enter_reverse_mode swaps them back, which is no good. */
@@ -968,13 +944,23 @@ turn_on_face (struct frame *f, int face_id)
 	:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
 	:   (fg >= 16 && fg < 256) ? fg
 	: 0;
-      if (fgi) SSPRINTF (seq, &n, sz, set_fg, fgi);
+      /* if (fgi) SSPRINTF (seq, &n, sz, set_fg, fgi); */
+      if (fgi)
+	{
+	  sprintf (seq, set_fg, fgi);
+	  w32con_write_vt_seq (seq);
+	}
 
       bgi = (bg >= 0  && bg < 8)   ? bg + 40
 	:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
 	:   (bg >= 16 && bg < 256) ? bg
 	: 0;
-      if (bgi) SSPRINTF (seq, &n, sz, set_bg, bgi);
+      /* if (bgi) SSPRINTF (seq, &n, sz, set_bg, bgi); */
+      if (fgi)
+	{
+	  sprintf (seq, set_bg, bgi);
+	  w32con_write_vt_seq (seq);
+	}
     }
   else if (tty->TN_max_colors == 16777216)
     {
@@ -985,10 +971,14 @@ turn_on_face (struct frame *f, int face_id)
       /* fg and bg are pixel values - decompose to rgb triples */
       unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
       unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
-      SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
-      SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
+      /* SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf); */
+      sprintf (seq, set_fg, rf, gf, bf);
+      w32con_write_vt_seq (seq);
+      /* SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb); */
+      sprintf (seq, set_bg, rb, gb, bb);
+      w32con_write_vt_seq (seq);
     }
-  w32con_write_vt_seq (seq);
+  /* w32con_write_vt_seq (seq); */
 }
 
 static void
@@ -1007,12 +997,18 @@ turn_off_face (struct frame *f, int face_id)
 }
 
 /* returns the pixel value for the given index into VT base color map */
+static unsigned long pixel_cache[16];
 static unsigned long
 get_pixel (unsigned long index)
 {
   unsigned int i = (unsigned int) index;
-  Lisp_Object pix =  safe_calln (Qw32con_get_pixel, make_ufixnum (i));
-  return (unsigned long) XUFIXNUM (pix);
+  if (i > 15) return 0;
+  if (i == 0 || pixel_cache[i] > 0)
+    return pixel_cache[i];
+
+  Lisp_Object pix = safe_calln (Qw32con_get_pixel, make_ufixnum (i));
+  pixel_cache[i] = (unsigned long) XUFIXNUM (pix);
+  return pixel_cache[i];
 }
 
 /***********************************************************************
