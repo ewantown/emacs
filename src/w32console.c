@@ -484,12 +484,17 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	 glass, some of the glyphs might be from a child frame, which
 	 affects the interpretation of face ID.  */
       struct frame *face_id_frame = string->frame;
+      int avoid_cursor = string->avoid_cursor_p;
       int n;
 
       for (n = 1; n < len; ++n)
 	if (!(string[n].face_id == face_id
-	      && string[n].frame == face_id_frame))
+	      && string[n].frame == face_id_frame
+	      && string[n].avoid_cursor_p == avoid_cursor))
 	  break;
+
+      int prev_cursor_hidden = current_tty->cursor_hidden;
+      if (avoid_cursor) w32con_hide_cursor ();
 
       /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
       struct frame *attr_frame = face_id_frame ? face_id_frame : f;
@@ -530,6 +535,7 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	}
       len -= n;
       string += n;
+      if (avoid_cursor && !prev_cursor_hidden) w32con_show_cursor();
     }
 }
 
@@ -555,7 +561,6 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   /* We are going to write the entire block of glyphs in one go, as
      they all have the same face.  So this _is_ the last block.  */
   coding->mode |= CODING_MODE_LAST_BLOCK;
-
   conversion_buffer = (LPCSTR) encode_terminal_code (string, len, coding);
   if (coding->produced > 0)
     {
@@ -1202,6 +1207,7 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
   /* Set up the keyboard hook.  */
   setup_w32_kbdhook (hwnd);
 }
+
 
 /***********************************************************************
                             Lisp Interface

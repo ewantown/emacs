@@ -5959,6 +5959,25 @@ write_row (struct frame *f, int vpos, bool updating_menu_p)
   nlen = desired_row->used[TEXT_AREA];
   nend = nbody + nlen;
 
+#ifdef WINDOWSNT
+  /* This kludge handles cursor flashing in the echo area when running
+     with colored spaces in Windows Terminal, due to having only a
+     single cursor, and the way Windows Terminal handles cursor
+     display. The result of this fix is that the cursor is not shown
+     when writing a row-initial run of spaces at the left of the echo
+     area. This is not optimal, but beats incessant cursor flashing. */
+  int last_row_p = vpos == f->desired_matrix->nrows - 1;
+  if (last_row_p)
+    {
+      int idx = 0;
+      while (CHAR_GLYPH_SPACE_P (f, nbody[idx]) && idx < nend)
+	{
+	  nbody[idx].avoid_cursor_p = 1;
+	  idx++;
+	}
+    }
+#endif
+
   /* If display line has unknown contents, write the whole line.  */
   if (must_write_whole_line_p)
     {
