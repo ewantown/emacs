@@ -5754,19 +5754,28 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
     {
+      /* This special case handles cursor flashing in/to the echo area
+      when running with color backgrounds in Windows Terminal. We have
+      one cursor, it moves into whatever row we write, and Windows
+      draws it there. We don't want the cursor jumping at every echo.
+      So we hide it when it jumps, and it just "flickers" in-place. */
+
 #ifdef WINDOWSNT
+      int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
       if (!cursor_in_echo_area)
 	{
 	  w32con_save_cursor ();
 	  w32con_hide_cursor ();
 	}
 #endif
+
       write_row (f, last_row, updating_menu_p);
+
 #ifdef WINDOWSNT
       if (!cursor_in_echo_area)
 	{
 	  w32con_restore_cursor ();
-	  w32con_show_cursor ();
+	  if (!prev_cursor_hidden) w32con_show_cursor ();
 	}
 #endif
     }
@@ -5981,26 +5990,6 @@ write_row (struct frame *f, int vpos, bool updating_menu_p)
   nbody = desired_row->glyphs[TEXT_AREA];
   nlen = desired_row->used[TEXT_AREA];
   nend = nbody + nlen;
-
-#ifdef WINDOWSNT
-  /* This kludge handles cursor flashing in/to echo area when running
-     with colored spaces in Windows Terminal, due to having only a
-     single cursor, and the way Windows Terminal handles cursor
-     display. The result of this fix is that the cursor is not shown
-     when writing a row-initial run of spaces at the left of the echo
-     area. This is not optimal, but beats incessant cursor flashing.
-     See w32console.el for the downstream handling of avoid_cursor_p. */
-  int last_row_p = vpos == desired_matrix->nrows - 1;
-  if (last_row_p)
-    {
-      int idx = 0;
-      while (CHAR_GLYPH_SPACE_P (f, nbody[idx]) && &(nbody[idx]) < nend)
-	{
-	  nbody[idx].avoid_cursor_p = 1;
-	  idx++;
-	}
-    }
-#endif
 
   /* If display line has unknown contents, write the whole line.  */
   if (must_write_whole_line_p)

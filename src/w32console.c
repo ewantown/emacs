@@ -154,23 +154,17 @@ w32con_write_vt_seq (char *seq)
 ***********************************************************************/
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
-/* TODO - TEST - migrate to VT sequences: \x1b[<x>;<y>H  */
+/* TODO - TEST - migrate to VT sequences: \x1b[<y>;<x>H  */
 static void
 w32con_move_cursor (struct frame *f, int row, int col)
 {
-  // TODO - TEST KLUDGE
-  if (row == f->desired_matrix->nrows - 1
-      && col < 3
-      && w32_use_vt_seq_experimental_6)
-    w32con_hide_cursor ();
-
   cursor_coords.X = col;
   cursor_coords.Y = row;
   if (w32_use_virtual_terminal_sequences
       && w32_use_vt_seq_experimental_1)
     {
       char seq[32];
-      sprintf(seq, "\x1b[%d;%dH", col, row);
+      sprintf(seq, "\x1b[%d;%dH", row, col);
       w32con_write_vt_seq(seq);
     }
   else
@@ -234,7 +228,7 @@ w32con_restore_cursor (void)
  ***********************************************************************/
 
 /* Clear from cursor to end of screen.  */
-/* TODO - migrate to VT sequences:
+/* For reference:
    "clear" := overwrite with space character
    \x1b[0J => clear cursor (inclusive) to end of screen
    \x1b[1J => clear beginning of screen to cursor (inclusive)
@@ -242,8 +236,7 @@ w32con_restore_cursor (void)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences
-      && w32_use_vt_seq_experimental_2)
+  if (w32_use_virtual_terminal_sequences)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[1J");
@@ -258,15 +251,14 @@ w32con_clear_to_end (struct frame *f)
 }
 
 /* Clear the frame.  */
-/* TODO - TEST - migrate to VT sequences: \x1b[2J\x1b[3J
+/* For reference:
    "clear" := overwrite with space character
    \x1b[2J => clear entire screen (excluding scrollback area)
    \x1b[3J => clear scrollback area */
 static void
 w32con_clear_frame (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences
-      && w32_use_vt_seq_experimental_3)
+  if (w32_use_virtual_terminal_sequences)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[2J\x1b[3J");
@@ -345,8 +337,7 @@ w32con_clear_end_of_line (struct frame *f, int end)
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
-  if (w32_use_virtual_terminal_sequences
-      && w32_use_vt_seq_experimental_4)
+  if (w32_use_virtual_terminal_sequences)
     {
       char seq[32];
       char *fmt = n < 0 ? "\x1b[%dL" : "\x1b[%dM";
@@ -428,14 +419,13 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 #define	LEFT	1
 #define	RIGHT	0
 
-/* TODO - migrate to VT sequences:
+/* For reference:
    \x1b[<n>@ => insert <n> spaces at cursor, shift current text right
    \x1b[<n>P => delete <n> chars  at cursor, adding spaces from right */
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
-  if (w32_use_virtual_terminal_sequences
-      && w32_use_vt_seq_experimental_5)
+  if (w32_use_virtual_terminal_sequences)
     {
       char seq[32];
       char *fmt = direction == LEFT ? "\x1b[%d@" : "\x1b[%dP";
@@ -612,6 +602,8 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 
       if (w32_use_virtual_terminal_sequences)
 	{
+	  int prev_cursor_hidden = current_tty->cursor_hidden;
+	  w32con_hide_cursor ();
 	  w32con_save_cursor ();
 	  w32con_move_cursor (f, y, x);
 	  turn_on_face (f, face_id);
@@ -619,10 +611,11 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 			coding->produced, &written, NULL);
 	  turn_off_face (f, face_id);
 	  w32con_restore_cursor ();
+	  if (!prev_cursor_hidden) w32con_show_cursor ();
 	}
       else
 	{
-	  /* Compute the character attributes corresponding to the face.  */
+	  /* Compute the character attributes corresponding to the face. */
 	  DWORD char_attr = w32_face_attributes (f, face_id);
 
 	  /* Set the attribute for these characters.  */
@@ -815,32 +808,17 @@ w32con_update_begin (struct frame * f)
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
-
-  if (w32_hide_cursor_during_update)
-    {
-      if ( // cursor_in_echo_area
-	   FRAME_HAS_MINIBUF_P (f)
-	   && EQ (FRAME_MINIBUF_WINDOW (f), echo_area_window)
-	   && XWINDOW (f->selected_window) == XWINDOW (echo_area_window))
-	{
-	  w32con_hide_cursor ();	  
-	}
-    }
-  /* if (w32_hide_cursor_during_update)     */
-  /*   w32con_hide_cursor (); */
 }
 
 static void
 w32con_update_end (struct frame * f)
 {
   w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
-
-  if (w32_hide_cursor_during_update
-      && !XWINDOW (selected_window)->cursor_off_p
+  if (!XWINDOW (selected_window)->cursor_off_p
       && cursor_coords.X < FRAME_COLS (f))
     w32con_show_cursor ();
-  /* else */
-  /*   w32con_hide_cursor (); */
+  else
+    w32con_hide_cursor ();
 }
 
 /***********************************************************************
@@ -1320,45 +1298,10 @@ See `w32con-set-up-initial-frame-faces', which should be called after setting th
 manually in a running session. */);
   w32_use_virtual_terminal_sequences = 0;
 
-  DEFVAR_BOOL ("w32-inhibit-redisplay-during-update",
-	       w32_inhibit_redisplay_during_update,
-	       doc: /* Internal variable used to control cursor flickering. */);
-  w32_inhibit_redisplay_during_update = 0;
-
-  DEFVAR_BOOL ("w32-hide-cursor-during-update",
-	       w32_hide_cursor_during_update,
-	       doc: /* Internal variable used to control cursor flickering. */);
-  w32_hide_cursor_during_update = 0;
-
   DEFVAR_BOOL ("w32-use-vt-seq-experimental_1",
 	       w32_use_vt_seq_experimental_1,
 	       doc: /* Internal variable for testing VT sequence migration. */);
   w32_use_vt_seq_experimental_1 = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_2",
-	       w32_use_vt_seq_experimental_2,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_2 = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_3",
-	       w32_use_vt_seq_experimental_3,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_3 = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_4",
-	       w32_use_vt_seq_experimental_4,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_4 = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_5",
-	       w32_use_vt_seq_experimental_5,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_5 = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_6",
-	       w32_use_vt_seq_experimental_6,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_6 = 6;
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
