@@ -159,12 +159,15 @@ static void
 w32con_move_cursor (struct frame *f, int row, int col)
 {
   // TODO - TEST KLUDGE
-  if (row == f->desired_matrix->nrows - 1 && col < 3)
+  if (row == f->desired_matrix->nrows - 1
+      && col < 3
+      && w32_use_vt_seq_experimental_6)
     w32con_hide_cursor ();
 
   cursor_coords.X = col;
   cursor_coords.Y = row;
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences
+      && w32_use_vt_seq_experimental_1)
     {
       char seq[32];
       sprintf(seq, "\x1b[%d;%dH", col, row);
@@ -239,7 +242,8 @@ w32con_restore_cursor (void)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences
+      && w32_use_vt_seq_experimental_2)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[1J");
@@ -261,7 +265,8 @@ w32con_clear_to_end (struct frame *f)
 static void
 w32con_clear_frame (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences
+      && w32_use_vt_seq_experimental_3)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[2J\x1b[3J");
@@ -293,7 +298,7 @@ static size_t glyphs_len = ARRAYELTS (glyph_base);
 static BOOL  ceol_initialized = FALSE;
 
 /* Clear from Cursor to end (what's "standout marker"?).  */
-/* TODO - TEST - migrate to VT sequences:
+/* For reference:
    \x1b[0K => clear cursor (inclusive) to end of line
    \x1b[1K => clear beginning of line to cursor (inclusive)
    \x1b[2K => clear entire line */
@@ -340,7 +345,8 @@ w32con_clear_end_of_line (struct frame *f, int end)
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences
+      && w32_use_vt_seq_experimental_4)
     {
       char seq[32];
       char *fmt = n < 0 ? "\x1b[%dL" : "\x1b[%dM";
@@ -428,7 +434,8 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal_sequences
+      && w32_use_vt_seq_experimental_5)
     {
       char seq[32];
       char *fmt = direction == LEFT ? "\x1b[%d@" : "\x1b[%dP";
@@ -1323,18 +1330,42 @@ manually in a running session. */);
 	       doc: /* Internal variable used to control cursor flickering. */);
   w32_hide_cursor_during_update = 0;
 
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental",
-	       w32_use_vt_seq_experimental,
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_1",
+	       w32_use_vt_seq_experimental_1,
 	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental = 0;
+  w32_use_vt_seq_experimental_1 = 0;
 
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_2",
+	       w32_use_vt_seq_experimental_2,
+	       doc: /* Internal variable for testing VT sequence migration. */);
+  w32_use_vt_seq_experimental_2 = 0;
+
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_3",
+	       w32_use_vt_seq_experimental_3,
+	       doc: /* Internal variable for testing VT sequence migration. */);
+  w32_use_vt_seq_experimental_3 = 0;
+
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_4",
+	       w32_use_vt_seq_experimental_4,
+	       doc: /* Internal variable for testing VT sequence migration. */);
+  w32_use_vt_seq_experimental_4 = 0;
+
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_5",
+	       w32_use_vt_seq_experimental_5,
+	       doc: /* Internal variable for testing VT sequence migration. */);
+  w32_use_vt_seq_experimental_5 = 0;
+
+  DEFVAR_BOOL ("w32-use-vt-seq-experimental_6",
+	       w32_use_vt_seq_experimental_6,
+	       doc: /* Internal variable for testing VT sequence migration. */);
+  w32_use_vt_seq_experimental_6 = 6;
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
 
   DEFSYM (Qw32con_get_pixel,
 	  "w32con-get-pixel");
-  
+
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);

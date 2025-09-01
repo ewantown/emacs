@@ -103,6 +103,12 @@ static void adjust_frame_glyphs_for_frame_redisplay (struct frame *);
 static void set_window_update_flags (struct window *w, bool on_p);
 static void tty_set_cursor (struct frame *f);
 
+#ifdef WINDOWSNT
+extern void w32con_hide_cursor (void);
+extern void w32con_show_cursor (void);
+extern void w32con_save_cursor (void);
+extern void w32con_restore_cursor (void);
+#endif
 
 #if 0 /* Please leave this in as a debugging aid.  */
 static void
@@ -5747,7 +5753,24 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
      is done so that messages are made visible when pausing.  */
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
-    write_row (f, last_row, updating_menu_p);
+    {
+#ifdef WINDOWSNT
+      if (!cursor_in_echo_area)
+	{
+	  w32con_save_cursor ();
+	  w32con_hide_cursor ();
+	}
+#endif
+      write_row (f, last_row, updating_menu_p);
+#ifdef WINDOWSNT
+      if (!cursor_in_echo_area)
+	{
+	  w32con_restore_cursor ();
+	  w32con_show_cursor ();
+	}
+#endif
+    }
+
 
   if (first_row >= 0)
     for (int i = first_row; i < last_row; ++i)
@@ -5971,7 +5994,7 @@ write_row (struct frame *f, int vpos, bool updating_menu_p)
   if (last_row_p)
     {
       int idx = 0;
-      while (CHAR_GLYPH_SPACE_P (f, nbody[idx]) && idx < nend)
+      while (CHAR_GLYPH_SPACE_P (f, nbody[idx]) && &(nbody[idx]) < nend)
 	{
 	  nbody[idx].avoid_cursor_p = 1;
 	  idx++;
