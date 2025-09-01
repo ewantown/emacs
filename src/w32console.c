@@ -21,7 +21,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
    Geoff Voelker (voelker@cs.washington.edu)	9-12-93
    Ewan Townshend (ewan@etown.dev)              2025-08
 
-   c. 2025: 24bit RGB support in Windows (10+) Terminal and Console Host   
+   c. ~ 2025:
+   - 24bit RGB support in Windows (10+) Terminal
+   - Microsoft moving away from idiosyncratic API, toward ASCII controls
    https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 */
 
@@ -39,7 +41,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "w32term.h"
 #include "w32common.h"	/* for os_subtype */
 #include "w32inevt.h"
-#include "window.h"     /* for echo_area_window */
 
 #ifdef WINDOWSNT
 #include "w32.h"	/* for syms_of_ntterm */
@@ -72,11 +73,11 @@ extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
-static HANDLE	prev_screen, cur_screen;
-static WORD	char_attr_normal;
-static WORD	bg_normal;
-static WORD	fg_normal;
-static DWORD	prev_console_mode;
+static HANDLE   prev_screen, cur_screen;
+static WORD     char_attr_normal;
+static WORD     bg_normal;
+static WORD     fg_normal;
+static DWORD    prev_console_mode;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
 #ifndef USE_SEPARATE_SCREEN
@@ -164,7 +165,7 @@ w32con_move_cursor (struct frame *f, int row, int col)
       && w32_use_vt_seq_experimental_1)
     {
       char seq[32];
-      sprintf(seq, "\x1b[%d;%dH", row, col);
+      sprintf(seq, "\x1b[%d;%dH", row + 1, col + 1); /* 1-indexed */
       w32con_write_vt_seq(seq);
     }
   else
@@ -955,11 +956,11 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
 
-  // if either out of range, set both to values retrieved from terminal
+  /* if either out of range, set both to values retrieved from terminal */
   if (DEFAULTP (fg)) fg = fg_normal;
   if (DEFAULTP (bg)) bg = bg_normal;
 
-  // construct combined VT sequence for face attributes
+  /* construct combined VT sequence for face attributes */
   DWORD n = 0;
   size_t sz = SEQMAX;
   char seq[sz];
@@ -973,7 +974,7 @@ turn_on_face (struct frame *f, int face_id)
     SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL);
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
-  /* Note: xfaces.c swaps the values of fg and bg when fg and bg are
+  /* Note: the values of fg and bg are already swapped when fg and bg are
      set and face->tty_reverse_p. Adding the terminal sequence contained
      in tty->TS_enter_reverse_mode swaps them back, which is no good. */
 

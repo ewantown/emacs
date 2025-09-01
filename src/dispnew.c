@@ -6231,6 +6231,7 @@ write_row (struct frame *f, int vpos, bool updating_menu_p)
 	  olen = nlen;
 	}
     }
+
  just_erase:
   /* If any unerased characters remain after the new line, erase them.  */
   if (olen > nlen)

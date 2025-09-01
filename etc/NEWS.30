@@ -21,7 +21,8 @@ with a prefix argument or by typing 'C-u C-h C-n'.
 Previously, Emacs terminal sessions in Windows Terminal and Windows
 Console supported display of 16 colors, via the Windows Console API.
 There is now support in Windows Terminal for 256 and 24-bit RGB color,
-by emitting Virtual Terminal Sequences modelled on the VT100 and Xterm.
+by emitting Virtual Terminal Sequences (modelled on VT100 and Xterm).
+Cursor movement / display has also been implemented with VT sequences.
 This aligns with Microsoft's long-term roadmap and is a first step in
 moving Emacs sessions over to the newer Windows Terminal interface.
 
