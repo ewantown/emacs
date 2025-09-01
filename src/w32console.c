@@ -789,8 +789,7 @@ w32con_set_terminal_modes (struct terminal *t)
   if (w32_use_virtual_terminal_sequences)
     {
       int cursor_off_p = XWINDOW (selected_window)->cursor_off_p;
-      int cursor_inf_p = cursor_coords.X < FRAME_COLS (f);
-      t->display_info.tty->cursor_hidden = !cursor_off_p && cursor_inf_p;
+      t->display_info.tty->cursor_hidden = cursor_off_p;
     }
 }
 
