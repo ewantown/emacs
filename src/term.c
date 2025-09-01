@@ -73,7 +73,6 @@ static void clear_tty_hooks (struct terminal *terminal);
 static void set_tty_hooks (struct terminal *terminal);
 static void dissociate_if_controlling_tty (int fd);
 static void delete_tty (struct terminal *);
-
 #endif /* !HAVE_ANDROID */
 
 static AVOID maybe_fatal (bool, struct terminal *, const char *, const char *,
@@ -346,10 +345,10 @@ tty_hide_cursor (struct tty_display_info *tty)
 {
   if (tty->cursor_hidden == 0)
     {
-      tty->cursor_hidden = 1;
 #ifdef WINDOWSNT
       w32con_hide_cursor ();
 #else
+      tty->cursor_hidden = 1;
       OUTPUT_IF (tty, tty->TS_cursor_invisible);
 #endif
     }
@@ -363,10 +362,10 @@ tty_show_cursor (struct tty_display_info *tty)
 {
   if (tty->cursor_hidden)
     {
-      tty->cursor_hidden = 0;
 #ifdef WINDOWSNT
       w32con_show_cursor ();
 #else
+      tty->cursor_hidden = 0;
       OUTPUT_IF (tty, tty->TS_cursor_normal);
       if (visible_cursor)
         OUTPUT_IF (tty, tty->TS_cursor_visible);
@@ -2207,7 +2206,7 @@ TERMINAL does not refer to a text terminal.  */)
   return make_fixnum (t ? t->display_info.tty->TN_max_colors : 0);
 }
 
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined MSDOS && !defined HAVE_ANDROID
 
 /* Declare here rather than in the function, as in the rest of Emacs,
    to work around an HPUX compiler bug (?). See
@@ -2246,7 +2245,7 @@ tty_default_color_capabilities (struct tty_display_info *tty, bool save)
    MODE's value is generally the number of colors which we want to
    support; zero means set up for the default capabilities, the ones
    we saw at init_tty time; -1 means turn off color support.  */
-static void
+void
 tty_setup_colors (struct tty_display_info *tty, int mode)
 {
   /* Canonicalize all negative values of MODE.  */
@@ -2264,18 +2263,42 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
       default:
 	tty_default_color_capabilities (tty, 0);
 	break;
-      case 8:	/* 8 standard ANSI colors */
-	tty->TS_orig_pair = "\033[0m";
+      case 8: /* 8 standard ANSI colors */
+	tty->TS_orig_pair = "\x1b[0m";
+	tty->TS_set_foreground = "\x1b[3%dm";
+	tty->TS_set_background = "\x1b[4%dm";
 #ifdef TERMINFO
-	tty->TS_set_foreground = "\033[3%p1%dm";
-	tty->TS_set_background = "\033[4%p1%dm";
-#else
-	tty->TS_set_foreground = "\033[3%dm";
-	tty->TS_set_background = "\033[4%dm";
+	tty->TS_set_foreground = "\x1b[3%p1%dm";
+	tty->TS_set_background = "\x1b[4%p1%dm";
+#endif
+#ifdef WINDOWSNT
+	tty->TS_orig_pair = "\x1b[39m\x1b[49m";
+	tty->TS_set_foreground = "\x1b[%lum";
+	tty->TS_set_background = "\x1b[%lum";
 #endif
 	tty->TN_max_colors = 8;
 	tty->TN_no_color_video = 0;
 	break;
+#ifdef WINDOWSNT
+      case 16:
+	tty->TS_set_foreground = "\x1b[%lum";
+	tty->TS_set_background = "\x1b[%lum";
+	tty->TN_max_colors = 16;
+	tty->TN_no_color_video = 0;
+	break;
+      case 256:
+	tty->TN_max_colors = 256;
+	tty->TS_set_foreground = "\x1b[38;5;%lum";
+	tty->TS_set_background = "\x1b[48;5;%lum";
+	tty->TN_no_color_video = 0;
+	break;
+      case 16777216:
+	tty->TN_max_colors = 16777216;
+	tty->TS_set_foreground = "\x1b[38;2;%lu;%lu;%lum";
+	tty->TS_set_background = "\x1b[48;2;%lu;%lu;%lum";
+	tty->TN_no_color_video = 0;
+	break;
+#endif
     }
 }
 
@@ -2307,12 +2330,16 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
     {
       tty->previous_color_mode = mode;
       tty_setup_colors (tty , mode);
-      /*  This recomputes all the faces given the new color definitions.  */
+      /*  This recomputes all the faces given the new color definitions. */
+#ifdef WINDOWSNT
+      safe_calln (Qw32con_set_up_initial_frame_faces);
+#else
       safe_calln (Qtty_set_up_initial_frame_faces);
+#endif
     }
 }
 
-#endif /* !DOS_NT && !HAVE_ANDROID */
+#endif /* !MSDOS && !HAVE_ANDROID */
 
 char *
 tty_type_name (Lisp_Object terminal)
@@ -4586,8 +4613,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
 		 || ((bg = getenv ("COLORTERM")) != NULL
 		     && strcasecmp (bg, "truecolor") == 0))
 	  {
-	    tty->TS_set_foreground = "\033[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
-	    tty->TS_set_background = "\033[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
+	    tty->TS_set_foreground = "\x1b[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
+	    tty->TS_set_background = "\x1b[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
 	    tty->TN_max_colors = 16777216;
 	  }
       }
@@ -4641,6 +4668,27 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
 
     initialize_w32_display (terminal, &width, &height);
 
+    /* 24bit RGB support in Windows (10+) Terminal and Console Host
+       https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences */
+    tty->TN_no_color_video = 0;
+    tty->TN_max_colors = 16777216;
+    tty->TS_orig_pair = "\x1b[39m\x1b[49m";
+    tty->TS_set_foreground = "\x1b[38;2;%lu;%lu;%lum";
+    tty->TS_set_background = "\x1b[48;2;%lu;%lu;%lum";
+
+    /* Save default color capabilities */
+    tty_default_color_capabilities (tty, 1);
+
+    tty->TS_enter_bold_mode = "\x1b[1m";
+    tty->TS_enter_italic_mode = "\x1b[3m";
+    tty->TS_enter_strike_through_mode = "\x1b[9m";
+    tty->TS_enter_underline_mode = "\x1b[4m";
+    tty->TS_exit_underline_mode = "\x1b[24m";
+    tty->TS_enter_reverse_mode = "\x1b[7m";
+    tty->TS_exit_attribute_mode = "\x1b[0m";
+    tty->TS_cursor_invisible = "\x1b[?25l";
+    tty->TS_cursor_visible = "\x1b[?25h";
+
     FrameRows (tty) = height;
     FrameCols (tty) = width;
     tty->specified_window = height;
@@ -4686,7 +4734,6 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
      don't think we're losing anything by turning it off.  */
   tty->line_ins_del_ok = 0;
 
-  tty->TN_max_colors = 16;  /* Must be non-zero for tty-display-color-p.  */
 #endif	/* DOS_NT */
 
 #ifdef HAVE_GPM
@@ -5202,11 +5249,11 @@ non-nil to enable this optimization.  */);
   defsubr (&Stty_display_pixel_width);
   defsubr (&Stty_display_pixel_height);
 
-#if !defined DOS_NT && !defined HAVE_ANDROID
+#if !defined MSDOS && !defined HAVE_ANDROID
   default_orig_pair = NULL;
   default_set_foreground = NULL;
   default_set_background = NULL;
-#endif /* !DOS_NT && !HAVE_ANDROID */
+#endif /* !MSDOS && !HAVE_ANDROID */
 
 #ifndef HAVE_ANDROID
   encode_terminal_src = NULL;
