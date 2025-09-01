@@ -22,9 +22,53 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
    Ewan Townshend (ewan@etown.dev)              2025-08
 
    c. ~ 2025:
-   - 24bit RGB support in Windows (10+) Terminal
-   - Microsoft moving away from idiosyncratic API, toward ASCII controls
+   * 24bit RGB support in Windows (10+) Terminal
+   * Microsoft moving away from idiosyncratic API, toward ASCII controls
+
    https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+
+   For reference (more defined at link above):
+
+   * "clear" := overwrite with space character
+
+   \x1b[0J => clear cursor (inclusive) to end of screen
+   \x1b[1J => clear beginning of screen to cursor (inclusive)
+   \x1b[2J => clear entire screen (excluding scrollback area)
+   \x1b[3J => clear scrollback area
+
+   \x1b[0K => clear cursor (inclusive) to end of line
+   \x1b[1K => clear beginning of line to cursor (inclusive)
+   \x1b[2K => clear entire line
+
+   \x1b[<n>@ => insert <n> spaces at cursor, shift current text right
+   \x1b[<n>P => delete <n> chars  at cursor, adding spaces from right
+
+   \x1b[7        => save cursor position
+   \x1b[8        => restore saved cursor position
+   \x1b[<y>;<x>H => move cursor to row <y>, col <x> (1-indexed)
+   \x1b[?25l     => hide cursor
+   \x1b[?25h     => show cursor
+
+   \x1b[0m => all attributes off
+   \x1b[1m => bold
+   \x1b[3m => italic
+   \x1b[4m => underline
+   \x1b[7m => inverse video
+   \x1b[9m => strike-through
+
+   * 16 base colors defined in w32console.el
+   \x1b[3<i>  (<i> in 0..7) => foreground = 16colors[i]
+   \x1b[4<i>  (<i> in 0..7) => background = 16colors[i]
+   \x1b[9<i>  (<i> in 0..7) => foreground = 16colors[i + 8]
+   \x1b[10<i> (<i> in 0..7) => background = 16colors[i + 8]
+
+   * 256 colors follow xterm
+   \x1b[38<i> (<i> in 0..255) => foreground = 256colors[i]
+   \x1b[48<i> (<i> in 0..255) => background = 256colors[i]
+
+   * 24-bit covers all named colors (see color-name-rgb-alist)
+   \x1b[38;2;<r>;<g>;<b> => foreground = (<r>, <g>, <b>)
+   \x1b[48;2;<r>;<g>;<b> => background = (<r>, <g>, <b>)
 */
 
 
@@ -115,7 +159,7 @@ ctrl_c_handler (unsigned long type)
    || p == FACE_TTY_DEFAULT_FG_COLOR					\
    || p == FACE_TTY_DEFAULT_BG_COLOR)
 
-#define SEQMAX 512 /* Arbitrary upper limit on VT sequence size */
+#define SEQMAX 256 /* Arbitrary upper limit on VT sequence size */
 
 /* For debugging */
 static void
@@ -134,7 +178,7 @@ vt_seq_error (char *seq)
 	}
   else seq = "<null>";
   printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
-  printf ("LastError: 0x%ldx\n", GetLastError ());
+  printf ("LastError: 0x%dx\n", GetLastError ());
   fflush (stdout);
   exit (1);
 }
@@ -155,14 +199,12 @@ w32con_write_vt_seq (char *seq)
 ***********************************************************************/
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
-/* TODO - TEST - migrate to VT sequences: \x1b[<y>;<x>H  */
 static void
 w32con_move_cursor (struct frame *f, int row, int col)
 {
   cursor_coords.X = col;
   cursor_coords.Y = row;
-  if (w32_use_virtual_terminal_sequences
-      && w32_use_vt_seq_experimental_1)
+  if (w32_use_virtual_terminal_sequences)
     {
       char seq[32];
       sprintf(seq, "\x1b[%d;%dH", row + 1, col + 1); /* 1-indexed */
@@ -229,11 +271,6 @@ w32con_restore_cursor (void)
  ***********************************************************************/
 
 /* Clear from cursor to end of screen.  */
-/* For reference:
-   "clear" := overwrite with space character
-   \x1b[0J => clear cursor (inclusive) to end of screen
-   \x1b[1J => clear beginning of screen to cursor (inclusive)
-   \x1b[2J => clear entire screen (excluding scrollback area) */
 static void
 w32con_clear_to_end (struct frame *f)
 {
@@ -252,10 +289,6 @@ w32con_clear_to_end (struct frame *f)
 }
 
 /* Clear the frame.  */
-/* For reference:
-   "clear" := overwrite with space character
-   \x1b[2J => clear entire screen (excluding scrollback area)
-   \x1b[3J => clear scrollback area */
 static void
 w32con_clear_frame (struct frame *f)
 {
@@ -291,10 +324,6 @@ static size_t glyphs_len = ARRAYELTS (glyph_base);
 static BOOL  ceol_initialized = FALSE;
 
 /* Clear from Cursor to end (what's "standout marker"?).  */
-/* For reference:
-   \x1b[0K => clear cursor (inclusive) to end of line
-   \x1b[1K => clear beginning of line to cursor (inclusive)
-   \x1b[2K => clear entire line */
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
@@ -419,10 +448,8 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 #undef	RIGHT
 #define	LEFT	1
 #define	RIGHT	0
-
-/* For reference:
-   \x1b[<n>@ => insert <n> spaces at cursor, shift current text right
-   \x1b[<n>P => delete <n> chars  at cursor, adding spaces from right */
+/* The idea here is to implement a horizontal scroll in one line to
+   implement delete and half of insert.  */
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
@@ -438,8 +465,6 @@ scroll_line (struct frame *f, int dist, int direction)
     }
   else
     {
-      /* The idea here is to implement a horizontal scroll in one line to
-	 implement delete and half of insert.  */
       SMALL_RECT scroll, clip;
       COORD	     dest;
       CHAR_INFO  fill;
@@ -797,7 +822,11 @@ w32con_set_terminal_modes (struct terminal *t)
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
    clumps rather than one-character-at-a-time...
 
-   we'll start with not moving the cursor while an update is in progress. */
+   we'll start with not moving the cursor while an update is in progress.
+
+   ... c. 2025, VT sequences can only be written with WriteConsole,
+   printf, etc., which advance the cursor.
+*/
 static void
 w32con_update_begin (struct frame * f)
 {
@@ -1293,16 +1322,11 @@ scroll-back buffer.  */);
 		w32_use_virtual_terminal_sequences,
 		doc: /* If non-nil w32 console uses terminal sequences for some output processing.
 This variable is set automatically based on the capabilities of the terminal.
-It determines the number and indices of colors used for faces on the console.
+It determines the number and indices of colors used for faces in the terminal.
 If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
 See `w32con-set-up-initial-frame-faces', which should be called after setting this variable 
 manually in a running session. */);
   w32_use_virtual_terminal_sequences = 0;
-
-  DEFVAR_BOOL ("w32-use-vt-seq-experimental_1",
-	       w32_use_vt_seq_experimental_1,
-	       doc: /* Internal variable for testing VT sequence migration. */);
-  w32_use_vt_seq_experimental_1 = 0;
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
