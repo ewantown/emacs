@@ -431,7 +431,7 @@ scroll_line (struct frame *f, int dist, int direction)
   if (w32_use_virtual_terminal_sequences)
     {
       char seq[32];
-      char *fmt = direction = LEFT ? "\x1b[%d@" : "\x1b[%dP";
+      char *fmt = direction == LEFT ? "\x1b[%d@" : "\x1b[%dP";
       sprintf (seq, fmt, abs (dist));
 
       turn_on_face (f, space_glyph.face_id);
