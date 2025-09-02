@@ -283,29 +283,29 @@ w32con_draw_cursor (struct frame *f, bool in_menu_p)
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
       if (cursor_face_id > -1)
 	{
-	  int ox = dup_coords.X,    oy = dup_coords.Y;
+	  /* int ox = dup_coords.X,    oy = dup_coords.Y; */
 	  int nx = cursor_coords.X, ny = cursor_coords.Y;
 
-	  struct glyph_row *orow = MATRIX_ROW (f->desired_matrix, oy);
+	  /* struct glyph_row *orow = MATRIX_ROW (f->desired_matrix, oy); */
 	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, ny);
 
-	  if (dup_face_id > -1)
-	    orow->glyphs[TEXT_AREA][ox].face_id = dup_face_id;
+	  /* if (dup_face_id > -1) */
+	  /*   orow->glyphs[TEXT_AREA][ox].face_id = dup_face_id; */
 
 	  int tmp_face_id = nrow->glyphs[TEXT_AREA][nx].face_id;
 
 	  nrow->glyphs[TEXT_AREA][nx].face_id = cursor_face_id;
 
-	  if (oy != ny && dup_face_id > -1)
-	    write_row (f, oy, in_menu_p);
+	  /* if (oy != ny && dup_face_id > -1) */
+	  /*   write_row (f, oy, in_menu_p); */
 	  if (!tty->cursor_hidden)
 	    write_row (f, ny, in_menu_p);
 
 	  w32con_move_cursor (f, ny, nx);
 
-	  dup_face_id = tmp_face_id;
-	  dup_coords.Y = ny;
-	  dup_coords.X = nx;
+	  /* dup_face_id = tmp_face_id; */
+	  /* dup_coords.Y = ny; */
+	  /* dup_coords.X = nx; */
 	}
     }
 }
