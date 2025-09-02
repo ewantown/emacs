@@ -272,6 +272,7 @@ w32con_restore_cursor (void)
     SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
+DEFSYM (Qisearch, "isearch");
 unsigned long saved_cursor_bg = -9;
 void
 w32con_draw_cursor (struct frame *f)
@@ -279,7 +280,10 @@ w32con_draw_cursor (struct frame *f)
   if (!using_system_caret)
     {
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
-      if (cursor_face_id > -1) /* try to fall back to tooltip face */
+      /* try fallbacks if not found*/
+      if (cursor_face_id == -1)
+	cursor_face_id = lookup_named_face (NULL, f, Qisearch, NULL);
+      if (cursor_face_id == -1)
 	cursor_face_id = lookup_named_face (NULL, f, Qtooltip, NULL);
       if (cursor_face_id > -1)
 	{
