@@ -114,6 +114,7 @@ void w32con_hide_cursor (void);
 static unsigned long get_pixel (unsigned long index);
 
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
+extern void write_row (struct frame *, int row, bool updating_menu_p);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
@@ -268,6 +269,42 @@ w32con_restore_cursor (void)
     w32con_write_vt_seq ((char *) "\x1b[8");
   else
     SetConsoleCursorPosition (cur_screen, cursor_coords);
+}
+
+static int dup_face_id = -1;
+static COORDS dup_coords;
+void
+w32con_draw_cursor (struct frame *f, bool in_menu_p)
+{
+  if (!w32_use_visible_system_caret)
+    {
+      struct tty_display_info *tty = FRAME_TTY (f);
+      int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
+      if (!tty->cursor_hidden && face_id > -1)
+	{
+	  int ox = dup_coords.X,    oy = dup_coords.Y;
+	  int nx = cursor_coords.X, ny = cursor_coords.Y;
+
+	  struct glyph_row *orow = MATRIX_ROW (f->desired_matrix, oy);
+	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, ny);
+
+	  if (dup_face_id > -1)
+	    orow->glyphs[TEXT_AREA][ox].face_id = dup_face_id;
+
+	  int tmp_face_id = nrow->glyphs[TEXT_AREA][nx].face_id;
+
+	  nrow->glyphs[TEXT_AREA][nx].face_id = cursor_face_id;
+
+	  if (oy != ny && dup_face_id > -1) write_row (f, oy, in_menu_p);
+	  write_row (f, ny, in_menu_p);
+
+	  w32con_move_cursor (f, ny, nx);
+
+	  dup_face_id = tmp_face_id;
+	  dup_coords.Y = ny;
+	  dup_coords.X = nx;
+	}
+    }
 }
 
 /***********************************************************************
@@ -786,7 +823,7 @@ w32con_set_terminal_modes (struct terminal *t)
 
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = w32_use_visible_sytem_caret ? TRUE : FALSE;
+  cci.bVisible = w32_use_visible_system_caret ? TRUE : FALSE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);

@@ -108,6 +108,7 @@ extern void w32con_hide_cursor (void);
 extern void w32con_show_cursor (void);
 extern void w32con_save_cursor (void);
 extern void w32con_restore_cursor (void);
+extern void w32con_draw_cursor (struct frame *, bool);
 #endif
 
 #if 0 /* Please leave this in as a debugging aid.  */
@@ -4077,23 +4078,9 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
   tty_set_cursor (cf);
 
 #ifdef WINDOWSNT
-  if (!w32_use_visible_system_caret)
-    {
-      struct tty_display_info *tty = FRAME_TTY (cf);
-      if (!tty->cursor_hidden)
-	{
-	  int x = cursorX (tty), y = cursorY (tty);
-	  struct glyph_row *row = MATRIX_ROW (cf->desired_matrix, y);
-	  int face_id = lookup_named_face (NULL, cf, Qcursor, NULL);
-	  if (face_id > -1)
-	    {
-	      row->glyphs[TEXT_AREA][x].face_id = face_id;
-	      write_row (cf, y, false);
-	      cursor_to(cf, y, x);
-	    }
-	}
-    }
+  w32con_draw_cursor(cf, false);
 #endif
+
   /* If a child is displayed, and the cursor is displayed in another
      frame, the child might lay above the cursor, so that it appears to
      "shine through" the child.  Avoid that because it's confusing.  */
@@ -4178,22 +4165,7 @@ update_frame_with_menu (struct frame *f, int row, int col)
     tty_set_cursor (f);
 
 #ifdef WINDOWSNT
-  if (!w32_use_visible_system_caret)
-    {
-      struct tty_display_info *tty = FRAME_TTY (f);
-      if (!tty->cursor_hidden)
-	{
-	  int x = cursorX (tty), y = cursorY (tty);
-	  struct glyph_row *row = MATRIX_ROW (f->desired_matrix, y);
-	  int face_id = lookup_named_face (NULL, f, Qcursor, NULL);
-	  if (face_id > -1)
-	    {
-	      row->glyphs[TEXT_AREA][x].face_id = face_id;
-	      write_row (f, y, true);
-	      cursor_to(f, y, x);
-	    }
-	}
-    }
+  w32con_draw_cursor (f, true);
 #endif
 
   clear_desired_matrices (f);
@@ -5975,7 +5947,7 @@ count_match (struct glyph *str1, struct glyph *end1, struct glyph *str2, struct 
 
 /* Perform a frame-based update on line VPOS in frame FRAME.  */
 
-static void
+void
 write_row (struct frame *f, int vpos, bool updating_menu_p)
 {
   struct glyph *obody, *nbody, *op1, *op2, *np1, *nend;
