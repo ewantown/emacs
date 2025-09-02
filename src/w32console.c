@@ -110,7 +110,7 @@ void w32con_save_cursor (void);
 void w32con_restore_cursor (void);
 void w32con_show_cursor (void);
 void w32con_hide_cursor (void);
-void w32con_draw_cursor (struct frame *f)
+void w32con_draw_cursor (struct frame *f);
 
 static unsigned long get_pixel (unsigned long index);
 
@@ -273,22 +273,36 @@ w32con_restore_cursor (void)
     SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
+unsigned long saved_cursor_bg = -9;
 void
 w32con_draw_cursor (struct frame *f)
 {
   if (!using_system_caret)
     {
-      struct tty_display_info *tty = FRAME_TTY (f);
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
+      if (cursor_face_id > -1) /* try to fall back to tooltip face */
+	cursor_face_id = lookup_named_face (NULL, f, Qtooltip, NULL);
       if (cursor_face_id > -1)
 	{
-	  int nx = cursor_coords.X, ny = cursor_coords.Y;
-	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, ny);
-	  int tmp_face_id = nrow->glyphs[TEXT_AREA][nx].face_id;
-	  nrow->glyphs[TEXT_AREA][nx].face_id = cursor_face_id;
-	  /* if (!tty->cursor_hidden) */
-	  /*   write_row (f, ny, in_menu_p); */
-	  /* w32con_move_cursor (f, ny, nx); */
+	  int x = cursor_coords.X, y = cursor_coords.Y;
+	  struct tty_display_info *tty = FRAME_TTY (f);
+	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
+	  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
+	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
+	  struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
+	  /* clean up from last run */
+	  if (saved_cursor_bg > -9)
+	    {
+	      cursor_face->background = saved_cursor_bg;
+	      saved_cursor_bg = -9;
+	    }
+	  /* draw cursor (i.e. manipulate faces) */
+	  if (cursor_face->background == glyph_face->background)
+	    {
+	      saved_cursor_bg = cursor_face->background;
+	      cursor_face->background = glyph_face->foreground;
+	    }
+	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
 	}
     }
 }
