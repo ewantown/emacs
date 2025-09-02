@@ -881,19 +881,17 @@ w32con_update_begin (struct frame * f)
 
   if (using_system_caret != w32_use_visible_system_caret)
     {
+      if (using_system_caret) w32con_hide_cursor ();
+
       using_system_caret = w32_use_visible_system_caret;
+
       if (using_system_caret) /* need to sync */
 	{
+	  current_tty->cursor_hidden = !current_tty->cursor_hidden;
 	  if (current_tty->cursor_hidden)
-	    {
-	      current_tty->cursor_hidden = 0;
-	      w32con_hide_cursor ();
-	    }
+	    w32con_show_cursor ();
 	  else
-	    {
-	      current_tty->cursor_hidden = 1;
-	      w32con_show_cursor ();
-	    }
+	    w32con_hide_cursor ();
 	}
     }
 }
