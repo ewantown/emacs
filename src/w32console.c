@@ -292,29 +292,32 @@ w32con_draw_cursor (struct frame *f)
 	  struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
 	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
 	  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
-	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
-	  struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
-	  /* clean up from last run if faces conflicted */
-	  /* if (saved_cursor_bg > -9 && saved_cursor_fg > -9) */
-	  /*   { */
-	  /*     cursor_face->background = saved_cursor_bg; */
-	  /*     cursor_face->foreground = saved_cursor_fg; */
-	  /*     saved_cursor_bg = -9; */
-	  /*     saved_cursor_fg = -9; */
-	  /*   } */
-	  /* /\* draw cursor (i.e. manipulate faces) *\/ */
-	  /* if (cursor_face->background == glyph_face->background) */
-	  /*   { */
-	  /*     saved_cursor_bg = cursor_face->background; */
-	  /*     saved_cursor_fg = cursor_face->foreground; */
-	  /*     cursor_face->background = glyph_face->foreground; */
-	  /*     cursor_face->foreground = glyph_face->background; */
-	  /*   } */
-	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
+	  if (glyph_face_id != cursor_face_id)
+	    {
+	      /* clean up from last run if faces conflicted */
+	      if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
+		{
+		  cursor_face->background = saved_cursor_bg;
+		  cursor_face->foreground = saved_cursor_fg;
+		  saved_cursor_bg = -9;
+		  saved_cursor_fg = -9;
+		}
+	      /* draw cursor (i.e. manipulate faces) */
+	      struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
+	      struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
+	      if (cursor_face->background == glyph_face->background)
+		{
+		  saved_cursor_bg = cursor_face->background;
+		  saved_cursor_fg = cursor_face->foreground;
+		  cursor_face->background = glyph_face->foreground;
+		  cursor_face->foreground = glyph_face->background;
+		}
+	      nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
 
-	  /* force a rewrite including spaces */
-	  FRAME_TTY (f)->must_write_spaces = 1;
-	  nrow->enabled_p = 1;
+	      /* force a rewrite including spaces */
+	      FRAME_TTY (f)->must_write_spaces = 1;
+	      nrow->enabled_p = 1;
+	    }
 	}
     }
 }
