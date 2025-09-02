@@ -110,6 +110,7 @@ void w32con_save_cursor (void);
 void w32con_restore_cursor (void);
 void w32con_show_cursor (void);
 void w32con_hide_cursor (void);
+void w32con_draw_cursor (struct frame *f)
 
 static unsigned long get_pixel (unsigned long index);
 
@@ -273,7 +274,7 @@ w32con_restore_cursor (void)
 }
 
 void
-w32con_draw_cursor (struct frame *f, bool in_menu_p)
+w32con_draw_cursor (struct frame *f)
 {
   if (!using_system_caret)
     {

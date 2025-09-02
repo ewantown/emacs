@@ -108,7 +108,7 @@ extern void w32con_hide_cursor (void);
 extern void w32con_show_cursor (void);
 extern void w32con_save_cursor (void);
 extern void w32con_restore_cursor (void);
-extern void w32con_draw_cursor (struct frame *, bool);
+extern void w32con_draw_cursor (struct frame *);
 #endif
 
 #if 0 /* Please leave this in as a debugging aid.  */
@@ -4072,7 +4072,7 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
   update_begin (root);
 #ifdef WINDOWSNT
   tty_set_cursor (cf);
-  w32con_draw_cursor(cf, false);
+  w32con_draw_cursor(cf);
 #endif  
   write_matrix (root, inhibit_scrolling, false);
   make_matrix_current (root);
@@ -4159,7 +4159,7 @@ update_frame_with_menu (struct frame *f, int row, int col)
     cursor_to (f, row, col);
   else
     tty_set_cursor (f);  
-  w32con_draw_cursor (f, true);
+  w32con_draw_cursor (f);
 #endif  
   write_matrix (f, true, true);
   make_matrix_current (f);
