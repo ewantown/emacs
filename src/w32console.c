@@ -312,9 +312,8 @@ w32con_draw_cursor (struct frame *f)
 	    }
 	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
 
-	  /* write_row doesn't detect face change, so force a redraw. */
+	  /* force a redraw including spaces */
 	  FRAME_TTY (f)->must_write_spaces = 1;
-	  orow->enabled_p = 0;
 	  nrow->enabled_p = 1;
 	}
     }
