@@ -272,7 +272,7 @@ w32con_restore_cursor (void)
 }
 
 static int dup_face_id = -1;
-static COORDS dup_coords;
+static COORD dup_coords;
 void
 w32con_draw_cursor (struct frame *f, bool in_menu_p)
 {
