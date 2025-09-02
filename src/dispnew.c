@@ -73,7 +73,7 @@ struct dim
 
 /* Function prototypes.  */
 
-void write_row (struct frame *f, int vpos, bool updating_menu_p);
+static void write_row (struct frame *f, int vpos, bool updating_menu_p);
 static int required_matrix_height (struct window *);
 static int required_matrix_width (struct window *);
 static void increment_row_positions (struct glyph_row *, ptrdiff_t, ptrdiff_t);
@@ -5949,7 +5949,7 @@ count_match (struct glyph *str1, struct glyph *end1, struct glyph *str2, struct 
 
 /* Perform a frame-based update on line VPOS in frame FRAME.  */
 
-void
+static void
 write_row (struct frame *f, int vpos, bool updating_menu_p)
 {
   struct glyph *obody, *nbody, *op1, *op2, *np1, *nend;

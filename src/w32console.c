@@ -115,7 +115,6 @@ void w32con_draw_cursor (struct frame *f);
 static unsigned long get_pixel (unsigned long index);
 
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
-extern void write_row (struct frame *, int row, bool updating_menu_p);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
@@ -303,6 +302,7 @@ w32con_draw_cursor (struct frame *f)
 	      cursor_face->background = glyph_face->foreground;
 	    }
 	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
+	  FRAME_TTY (f)->must_write_spaces = 1;
 	}
     }
 }
