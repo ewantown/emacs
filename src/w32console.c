@@ -315,6 +315,7 @@ w32con_draw_cursor (struct frame *f)
 	  /* write_row doesn't detect face change, so force a redraw. */
 	  FRAME_TTY (f)->must_write_spaces = 1;
 	  orow->enabled_p = 0;
+	  nrow->enabled_p = 1;
 	}
     }
 }
