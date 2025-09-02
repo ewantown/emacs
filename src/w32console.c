@@ -295,7 +295,7 @@ w32con_draw_cursor (struct frame *f)
 	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
 	  struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
 	  /* clean up from last run if faces conflicted */
-	  if (saved_cursor_bg > -9 && save_cursor_fg > -9)
+	  if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
 	    {
 	      cursor_face->background = saved_cursor_bg;
 	      cursor_face->foreground = saved_cursor_fg;
