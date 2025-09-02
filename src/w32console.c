@@ -221,30 +221,34 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (void)
 {
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;
+  if (w32_use_visible_system_caret)
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = FALSE;
 
-  if (w32_use_virtual_terminal_sequences)
-    if (!current_tty->cursor_hidden)
-      w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
-  else
-    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-
+      if (w32_use_virtual_terminal_sequences)
+	if (!current_tty->cursor_hidden)
+	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
+	else
+	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
   current_tty->cursor_hidden = 1;
 }
 
 void
 w32con_show_cursor (void)
-{  
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;
+{
+  if (w32_use_visible_system_caret)
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = TRUE;
 
-  if (w32_use_virtual_terminal_sequences)
-    if (current_tty->cursor_hidden)
-      w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
-  else
-    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-
+      if (w32_use_virtual_terminal_sequences)
+	if (current_tty->cursor_hidden)
+	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
+	else
+	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
   current_tty->cursor_hidden = 0;
 }
 
@@ -544,17 +548,12 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	 glass, some of the glyphs might be from a child frame, which
 	 affects the interpretation of face ID.  */
       struct frame *face_id_frame = string->frame;
-      int avoid_cursor = string->avoid_cursor_p;
       int n;
 
       for (n = 1; n < len; ++n)
 	if (!(string[n].face_id == face_id
-	      && string[n].frame == face_id_frame
-	      && string[n].avoid_cursor_p == avoid_cursor))
+	      && string[n].frame == face_id_frame))
 	  break;
-
-      int prev_cursor_hidden = current_tty->cursor_hidden;
-      if (avoid_cursor) w32con_hide_cursor ();
 
       /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
       struct frame *attr_frame = face_id_frame ? face_id_frame : f;
@@ -593,7 +592,6 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	}
       len -= n;
       string += n;
-      if (avoid_cursor && !prev_cursor_hidden) w32con_show_cursor();
     }
 }
 
@@ -788,7 +786,7 @@ w32con_set_terminal_modes (struct terminal *t)
 
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = TRUE;
+  cci.bVisible = w32_use_visible_sytem_caret ? TRUE : FALSE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);

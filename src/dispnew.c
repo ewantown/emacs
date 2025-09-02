@@ -4068,11 +4068,32 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
      when it is a frame that is completely unrelated to the frame being
      displayed.  This can happen with multi-tty, when the selected frame
      can be a window-system frame.  */
+  struct frame *cf;
   if (frame_ancestor_p (root, SELECTED_FRAME ()))
-    tty_set_cursor (SELECTED_FRAME ());
+    cf = SELECTED_FRAME ();
   else
-    tty_set_cursor (root);
+    cf = root;
 
+  tty_set_cursor (cf);
+
+#ifdef WINDOWSNT
+  if (!w32_use_visible_system_caret)
+    {
+      struct tty_display_info *tty = FRAME_TTY (cf);
+      if (!tty->cursor_hidden)
+	{
+	  int x = cursorX (tty), y = cursorY (tty);
+	  struct glyph_row *row = MATRIX_ROW (cf->desired_matrix, y);
+	  int face_id = lookup_named_face (NULL, cf, Qcursor, NULL);
+	  if (face_id > -1)
+	    {
+	      row->glyphs[TEXT_AREA][x].face_id = face_id;
+	      write_row (cf, y, false);
+	      cursor_to(cf, y, x);
+	    }
+	}
+    }
+#endif
   /* If a child is displayed, and the cursor is displayed in another
      frame, the child might lay above the cursor, so that it appears to
      "shine through" the child.  Avoid that because it's confusing.  */
@@ -4149,13 +4170,33 @@ update_frame_with_menu (struct frame *f, int row, int col)
   update_begin (f);
   write_matrix (f, true, true);
   make_matrix_current (f);
-  clear_desired_matrices (f);
   /* ROW and COL tell us where in the menu to position the cursor, so
      that screen readers know the active region on the screen.  */
   if (row >= 0 && col >= 0)
     cursor_to (f, row, col);
   else
     tty_set_cursor (f);
+
+#ifdef WINDOWSNT
+  if (!w32_use_visible_system_caret)
+    {
+      struct tty_display_info *tty = FRAME_TTY (f);
+      if (!tty->cursor_hidden)
+	{
+	  int x = cursorX (tty), y = cursorY (tty);
+	  struct glyph_row *row = MATRIX_ROW (f->desired_matrix, y);
+	  int face_id = lookup_named_face (NULL, f, Qcursor, NULL);
+	  if (face_id > -1)
+	    {
+	      row->glyphs[TEXT_AREA][x].face_id = face_id;
+	      write_row (f, y, true);
+	      cursor_to(f, y, x);
+	    }
+	}
+    }
+#endif
+
+  clear_desired_matrices (f);
   update_end (f);
   flush_terminal (f);
 
@@ -5761,9 +5802,9 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       So we hide it when it jumps, and it just "flickers" in-place. */
 
 #ifdef WINDOWSNT
-      int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
-      if (!cursor_in_echo_area)
+      if (w32_use_visible_system_caret && !cursor_in_echo_area)
 	{
+	  int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
 	  w32con_save_cursor ();
 	  w32con_hide_cursor ();
 	}
@@ -5772,7 +5813,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       write_row (f, last_row, updating_menu_p);
 
 #ifdef WINDOWSNT
-      if (!cursor_in_echo_area)
+      if (w32_use_visible_system_caret && !cursor_in_echo_area)
 	{
 	  w32con_restore_cursor ();
 	  if (!prev_cursor_hidden) w32con_show_cursor ();
