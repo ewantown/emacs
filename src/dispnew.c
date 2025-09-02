@@ -5802,9 +5802,9 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       So we hide it when it jumps, and it just "flickers" in-place. */
 
 #ifdef WINDOWSNT
+      int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
       if (w32_use_visible_system_caret && !cursor_in_echo_area)
 	{
-	  int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
 	  w32con_save_cursor ();
 	  w32con_hide_cursor ();
 	}
