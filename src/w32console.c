@@ -274,13 +274,14 @@ w32con_restore_cursor (void)
 
 /* This function only to be called immediately before write_matrix */
 unsigned long saved_cursor_bg = -9;
+unsigned long saved_cursor_fg = -9;
 void
 w32con_draw_cursor (struct frame *f)
 {
   if (!using_system_caret)
     {
+      /* lookup the cursor face, or fallbacks if not found */
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
-      /* try fallbacks if not found*/
       if (cursor_face_id == -1)
 	cursor_face_id = lookup_named_face (NULL, f, Qisearch, NULL);
       if (cursor_face_id == -1)
@@ -293,17 +294,21 @@ w32con_draw_cursor (struct frame *f)
 	  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
 	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
 	  struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
-	  /* clean up from last run */
-	  if (saved_cursor_bg > -9)
+	  /* clean up from last run if faces conflicted */
+	  if (saved_cursor_bg > -9 && save_cursor_fg > -9)
 	    {
 	      cursor_face->background = saved_cursor_bg;
+	      cursor_face->foreground = saved_cursor_fg;
 	      saved_cursor_bg = -9;
+	      saved_cursor_fg = -9;
 	    }
 	  /* draw cursor (i.e. manipulate faces) */
 	  if (cursor_face->background == glyph_face->background)
 	    {
 	      saved_cursor_bg = cursor_face->background;
+	      saved_cursor_fg = cursor_face->foreground;
 	      cursor_face->background = glyph_face->foreground;
+	      cursor_face->foreground = glyph_face->background;
 	    }
 	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
 
