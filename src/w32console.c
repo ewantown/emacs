@@ -123,6 +123,7 @@ static WORD     char_attr_normal;
 static WORD     bg_normal;
 static WORD     fg_normal;
 static DWORD    prev_console_mode;
+static int      using_system_caret;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
 #ifndef USE_SEPARATE_SCREEN
@@ -222,7 +223,7 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (void)
 {
-  if (w32_use_visible_system_caret)
+  if (using_system_caret)
     {
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = FALSE;
@@ -239,7 +240,7 @@ w32con_hide_cursor (void)
 void
 w32con_show_cursor (void)
 {
-  if (w32_use_visible_system_caret)
+  if (using_system_caret)
     {
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = TRUE;
@@ -276,7 +277,7 @@ static COORD dup_coords;
 void
 w32con_draw_cursor (struct frame *f, bool in_menu_p)
 {
-  if (!w32_use_visible_system_caret)
+  if (!using_system_caret)
     {
       struct tty_display_info *tty = FRAME_TTY (f);
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
@@ -823,9 +824,11 @@ w32con_set_terminal_modes (struct terminal *t)
 {
   CONSOLE_CURSOR_INFO cci;
 
+  using_system_caret = w32_use_visible_system_caret;
+
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = w32_use_visible_system_caret ? TRUE : FALSE;
+  cci.bVisible = using_system_caret ? TRUE : FALSE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);
@@ -874,6 +877,24 @@ w32con_update_begin (struct frame * f)
     {
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
+    }
+
+  if (using_system_caret != w32_use_visible_system_caret)
+    {
+      using_system_caret = w32_use_visible_system_caret;
+      if (using_system_caret) /* need to sync */
+	{
+	  if (current_tty->cursor_hidden)
+	    {
+	      current_tty->cursor_hidden = 0;
+	      w32con_hide_cursor ();
+	    }
+	  else
+	    {
+	      current_tty->cursor_hidden = 1;
+	      w32con_show_cursor ();
+	    }
+	}
     }
 }
 
