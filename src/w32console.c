@@ -280,7 +280,7 @@ w32con_draw_cursor (struct frame *f, bool in_menu_p)
     {
       struct tty_display_info *tty = FRAME_TTY (f);
       int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
-      if (!tty->cursor_hidden && cursor_face_id > -1)
+      if (cursor_face_id > -1)
 	{
 	  int ox = dup_coords.X,    oy = dup_coords.Y;
 	  int nx = cursor_coords.X, ny = cursor_coords.Y;
@@ -295,8 +295,10 @@ w32con_draw_cursor (struct frame *f, bool in_menu_p)
 
 	  nrow->glyphs[TEXT_AREA][nx].face_id = cursor_face_id;
 
-	  if (oy != ny && dup_face_id > -1) write_row (f, oy, in_menu_p);
-	  write_row (f, ny, in_menu_p);
+	  if (oy != ny && dup_face_id > -1)
+	    write_row (f, oy, in_menu_p);
+	  if (!tty->cursor_hidden)
+	    write_row (f, ny, in_menu_p);
 
 	  w32con_move_cursor (f, ny, nx);
 
