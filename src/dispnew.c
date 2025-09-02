@@ -73,7 +73,7 @@ struct dim
 
 /* Function prototypes.  */
 
-static void write_row (struct frame *f, int vpos, bool updating_menu_p);
+void write_row (struct frame *f, int vpos, bool updating_menu_p);
 static int required_matrix_height (struct window *);
 static int required_matrix_width (struct window *);
 static void increment_row_positions (struct glyph_row *, ptrdiff_t, ptrdiff_t);
