@@ -272,7 +272,7 @@ w32con_restore_cursor (void)
     SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
-DEFSYM (Qisearch, "isearch");
+/* This function only to be called immediately before write_matrix */
 unsigned long saved_cursor_bg = -9;
 void
 w32con_draw_cursor (struct frame *f)
@@ -288,7 +288,7 @@ w32con_draw_cursor (struct frame *f)
       if (cursor_face_id > -1)
 	{
 	  int x = cursor_coords.X, y = cursor_coords.Y;
-	  struct tty_display_info *tty = FRAME_TTY (f);
+	  struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
 	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
 	  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
 	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
@@ -306,7 +306,10 @@ w32con_draw_cursor (struct frame *f)
 	      cursor_face->background = glyph_face->foreground;
 	    }
 	  nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
+
+	  /* write_row doesn't detect face change, so force a redraw. */
 	  FRAME_TTY (f)->must_write_spaces = 1;
+	  orow->enabled_p = 0;
 	}
     }
 }
@@ -1390,6 +1393,8 @@ manually in a running session. */);
 
   DEFSYM (Qw32con_get_pixel,
 	  "w32con-get-pixel");
+
+  DEFSYM (Qisearch, "isearch"); /* To look up the face. */
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
