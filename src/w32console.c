@@ -309,16 +309,18 @@ w32con_draw_cursor (struct frame *f)
 	    }
 	  nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
 
-	  /* force a rewrite including spaces */
+	  /* force a rewrite of new cursor row (including spaces) */
 	  FRAME_TTY (f)->must_write_spaces = 1;
 	  orow->enabled_p = 0;
 	  nrow->enabled_p = 1;
-	  if (saved_face_id > -1)
+
+	  /* force a rewrite of old cursor row (if needed) */
+	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
+	  if (saved_face_id > -1 && (px != x || py != y))
 	    {
-	      int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
-	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
 	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
-	      pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	      if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
+		pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
 	      porow->enabled_p = 0;
 	      pnrow->enabled_p = 1;
 	    }
