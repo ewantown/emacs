@@ -427,9 +427,6 @@ w32con_clear_end_of_line (struct frame *f, int end)
 }
 
 /* Insert n lines at vpos. if n is negative delete -n lines.  */
-/* TODO - migrate to VT sequences
-   \x1b[<n>L => insert <n> lines above, shifting cursor and below down
-   \x1b[<n>M => delete <n> lines below, from cursor line (incl.) down */
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
@@ -1411,8 +1408,6 @@ manually in a running session. */);
 
   DEFSYM (Qw32con_get_pixel,
 	  "w32con-get-pixel");
-
-  DEFSYM (Qisearch, "isearch"); /* To look up the face. */
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
