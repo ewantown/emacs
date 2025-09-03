@@ -313,18 +313,18 @@ w32con_draw_cursor (struct frame *f)
 	  FRAME_TTY (f)->must_write_spaces = 1;
 	  orow->enabled_p = 0;
 	  nrow->enabled_p = 1;
-	  if (saved_face_id > -1)
-	    {
-	      int px = prev_cursor_pos.X, int py = prev_cursor_pos.Y;
-	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
-	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
-	      porow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
-	      porow->enabled_p = 0;
-	      pnrow->enabled_p = 1;
-	    }
-	  saved_face_id = glyph_face_id;
-	  prev_cursor_pos.X = x;
-	  prev_cursor_pos.Y = y;
+	  /* if (saved_face_id > -1) */
+	  /*   { */
+	  /*     int px = prev_cursor_pos.X, int py = prev_cursor_pos.Y; */
+	  /*     struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py); */
+	  /*     struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py); */
+	  /*     porow->glyphs[TEXT_AREA][px].face_id = saved_face_id; */
+	  /*     porow->enabled_p = 0; */
+	  /*     pnrow->enabled_p = 1; */
+	  /*   } */
+	  /* saved_face_id = glyph_face_id; */
+	  /* prev_cursor_pos.X = x; */
+	  /* prev_cursor_pos.Y = y; */
 	}
     }
 }
