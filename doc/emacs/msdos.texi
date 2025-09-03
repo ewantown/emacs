@@ -1165,7 +1165,7 @@ anywhere else.
   The variable @code{w32-use-visible-system-caret} is a flag that
 determines whether to make the system caret visible.  The default when
 no screen reader software is in use is @code{nil}, which means Emacs
-draws its own cursor to indicate the position of point.  A
+draws its own cursor to indicate the position of point. A
 non-@code{nil} value means Emacs will indicate point location with the
 system caret; this facilitates use of screen reader software, and is
 the default when such software is detected when running Emacs.
@@ -1219,8 +1219,32 @@ but other (8, 16, 256) color spaces may be used, by passing the
 @code{--color} command line argument, or setting the value of the
 @code{tty-color-mode} frame parameter.
 
-Any time @code{w32-use-virtual-terminal-sequences} is set manually,
-@code{w32con-set-up-initial-frame-faces} should be called immediately.
+  Any time @code{w32-use-virtual-terminal-sequences} is set manually,
+the change in value should be immediately followed by a call to
+@code{set-frame-parameter} (re)setting @code{'tty-color-mode}, or
+at very least, a call to @code{w32con-set-up-initial-frame-faces}.
+
+  One note on the transition away from the old Windows Console API.
+TTY Emacs traditionally leaves text cursor display up to the terminal.
+Screen updates via the Windows Console API were performed directly on
+regions of the screen buffer, without any need to move the cursor during
+a display update. Virtual terminal sequences require moving the cursor
+to every point at which we need to write a change. Unfortunately, the
+content of the echo area changes frequently, and updates are not always
+quick enough for the cursor movement to be made imperceptible. This
+presents a UX dilemma. Either we (1) hide the cursor momentarily whenever
+it ``jumps'' to the echo area, which manifests in the cursor appearing to
+``flicker'' in-place, or (2) we don't, in which case the cursor jumps to
+/ flashes in the echo area. We get through the horns of the dilemma by (3)
+always hiding the system cursor, and having Emacs take over cursor display.
+
+  After the migration to virtual terminal sequences Emacs defaults to (3),
+but leaves (2) as an option. When @code{w32-use-visible-system-caret} is
+@code{nil}, a solid non-blinking text cursor will displayed (in the
+'cursor' face). When it is non-@code{nil}, a system cursor will be shown
+(possibly with a slight flicker). This change is independent of
+@code{w32-use-virtual-terminal-sequences}, but required for a smooth UX.
+
 
 @ifnottex
 @include msdos-xtra.texi

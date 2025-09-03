@@ -18,20 +18,31 @@ with a prefix argument or by typing 'C-u C-h C-n'.
 
 * Changes in Emacs 30.3
 ** Windows Terminal now displays 24-bit RGB.
-Previously, Emacs terminal sessions in Windows Terminal and Windows
-Console supported display of 16 colors, via the Windows Console API.
-There is now support in Windows Terminal for 256 and 24-bit RGB color,
-by emitting Virtual Terminal Sequences (modelled on VT100 and Xterm).
-Cursor movement / display has also been implemented with VT sequences.
-This aligns with Microsoft's long-term roadmap and is a first step in
-moving Emacs sessions over to the newer Windows Terminal interface.
+Previously, terminal sessions in Windows Terminal and Windows Console
+supported display of 16 colors, via the Windows Console API. There is
+now support in Windows Terminal for 256 and 24-bit RGB color, by
+emitting ASCII control sequences (modelled on VT100 and Xterm).
+Cursor movement / display has also been (re-)implemented. This aligns
+with Microsoft's long-term roadmap and is a first step in moving Emacs
+terminal sessions over to the newer Windows Terminal interface.
 
-This new functionality will be enabled automatically when supported.
+The new mechanism will be enabled automatically when supported.
 It defaults to 24-bit RGB color, but can be set to 8, 16, 256, or
 '24bit' by passing the '--color' flag or setting the 'tty-color-mode'
 frame parameter. It can be disabled/enabled by setting the variable
 'w32-use-virtual-terminal-sequences'. The older (16-color) interface
 will still be used in Windows Console and on pre-Win10 systems.
+
+** Emacs now handles text cursor display in Windows Terminal/Console.
+Previously, when running in Windows Terminal/Console, Emacs delegated
+text cursor display to the system (as on other TTYs). To enable a
+smooth UX following the migration to ASCII control sequences (see above),
+cursor display is now -- optionally, but by default -- handled by Emacs.
+When 'w32-use-visible-system-caret' is nil, a solid non-blinking text
+cursor will displayed (in the 'cursor' face). When it is set to non-nil,
+the system cursor will be shown.
+
+See the manual entry specific to MS-Windows for more details.
 
 
 * Changes in Emacs 30.2

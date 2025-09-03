@@ -5769,9 +5769,9 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
     {
-      /* This special case handles cursor flashing in/to the echo area
-      when running with color backgrounds in Windows Terminal. We have
-      one cursor, it moves into whatever row we write, and Windows
+      /* This special case handles system cursor flashing in/to the echo
+      area when running with color backgrounds in Windows Terminal. We
+      have one cursor, it moves into whatever row we write, and Windows
       draws it there. We don't want the cursor jumping at every echo.
       So we hide it when it jumps, and it just "flickers" in-place. */
 
