@@ -110,6 +110,7 @@ void w32con_save_cursor (void);
 void w32con_restore_cursor (void);
 void w32con_show_cursor (void);
 void w32con_hide_cursor (void);
+void w32con_draw_cursor (struct frame *f);
 
 static unsigned long get_pixel (unsigned long index);
 
@@ -122,6 +123,7 @@ static WORD     char_attr_normal;
 static WORD     bg_normal;
 static WORD     fg_normal;
 static DWORD    prev_console_mode;
+static int      using_system_caret;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
 #ifndef USE_SEPARATE_SCREEN
@@ -221,30 +223,34 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (void)
 {
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = FALSE;
+  if (using_system_caret)
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = FALSE;
 
-  if (w32_use_virtual_terminal_sequences)
-    if (!current_tty->cursor_hidden)
-      w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
-  else
-    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-
+      if (w32_use_virtual_terminal_sequences)
+	if (!current_tty->cursor_hidden)
+	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
+	else
+	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
   current_tty->cursor_hidden = 1;
 }
 
 void
 w32con_show_cursor (void)
-{  
-  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-  console_cursor_info.bVisible = TRUE;
+{
+  if (using_system_caret)
+    {
+      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+      console_cursor_info.bVisible = TRUE;
 
-  if (w32_use_virtual_terminal_sequences)
-    if (current_tty->cursor_hidden)
-      w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
-  else
-    SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-
+      if (w32_use_virtual_terminal_sequences)
+	if (current_tty->cursor_hidden)
+	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
+	else
+	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
+    }
   current_tty->cursor_hidden = 0;
 }
 
@@ -264,6 +270,66 @@ w32con_restore_cursor (void)
     w32con_write_vt_seq ((char *) "\x1b[8");
   else
     SetConsoleCursorPosition (cur_screen, cursor_coords);
+}
+
+/* This function only to be called immediately before write_matrix */
+static unsigned long saved_cursor_bg = -9;
+static unsigned long saved_cursor_fg = -9;
+static COORD prev_cursor_pos = { -1, -1 };
+static int saved_face_id = -1;
+void
+w32con_draw_cursor (struct frame *f)
+{
+  if (!using_system_caret)
+    {
+      int x = cursor_coords.X, y = cursor_coords.Y;
+      struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
+      struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
+      int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
+      if (glyph_face_id != CURSOR_FACE_ID)
+	{
+	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
+	  struct face *cursor_face = FACE_FROM_ID (f, CURSOR_FACE_ID);
+
+	  /* clean up from last run if faces conflicted */
+	  if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
+	    {
+	      cursor_face->background = saved_cursor_bg;
+	      cursor_face->foreground = saved_cursor_fg;
+	      saved_cursor_bg = -9;
+	      saved_cursor_fg = -9;
+	    }
+	  /* draw cursor (i.e. manipulate faces) */
+	  if (cursor_face->background == glyph_face->background)
+	    {
+	      saved_cursor_bg = cursor_face->background;
+	      saved_cursor_fg = cursor_face->foreground;
+	      cursor_face->background = glyph_face->foreground;
+	      cursor_face->foreground = glyph_face->background;
+	    }
+	  nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
+
+	  /* force a rewrite of new cursor row (including spaces) */
+	  FRAME_TTY (f)->must_write_spaces = 1;
+	  orow->enabled_p = 0;
+	  nrow->enabled_p = 1;
+
+	  /* force a rewrite of old cursor row (if needed) */
+	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
+	  if (saved_face_id > -1 && (px != x || py != y))
+	    {
+	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
+	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
+	      if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
+		pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	      porow->enabled_p = 0;
+	      pnrow->enabled_p = 1;
+	    }
+	  saved_face_id = glyph_face_id;
+	  prev_cursor_pos.X = x;
+	  prev_cursor_pos.Y = y;
+	}
+    }
 }
 
 /***********************************************************************
@@ -544,17 +610,12 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	 glass, some of the glyphs might be from a child frame, which
 	 affects the interpretation of face ID.  */
       struct frame *face_id_frame = string->frame;
-      int avoid_cursor = string->avoid_cursor_p;
       int n;
 
       for (n = 1; n < len; ++n)
 	if (!(string[n].face_id == face_id
-	      && string[n].frame == face_id_frame
-	      && string[n].avoid_cursor_p == avoid_cursor))
+	      && string[n].frame == face_id_frame))
 	  break;
-
-      int prev_cursor_hidden = current_tty->cursor_hidden;
-      if (avoid_cursor) w32con_hide_cursor ();
 
       /* w32con_clear_end_of_line sets frame of glyphs to NULL.  */
       struct frame *attr_frame = face_id_frame ? face_id_frame : f;
@@ -593,7 +654,6 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	}
       len -= n;
       string += n;
-      if (avoid_cursor && !prev_cursor_hidden) w32con_show_cursor();
     }
 }
 
@@ -786,9 +846,11 @@ w32con_set_terminal_modes (struct terminal *t)
 {
   CONSOLE_CURSOR_INFO cci;
 
+  using_system_caret = w32_use_visible_system_caret;
+
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = TRUE;
+  cci.bVisible = using_system_caret ? TRUE : FALSE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);
@@ -837,6 +899,22 @@ w32con_update_begin (struct frame * f)
     {
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
+    }
+
+  if (using_system_caret != w32_use_visible_system_caret)
+    {
+      if (using_system_caret) w32con_hide_cursor ();
+
+      using_system_caret = w32_use_visible_system_caret;
+
+      if (using_system_caret) /* need to sync */
+	{
+	  current_tty->cursor_hidden = !current_tty->cursor_hidden;
+	  if (current_tty->cursor_hidden)
+	    w32con_show_cursor ();
+	  else
+	    w32con_hide_cursor ();
+	}
     }
 }
 
@@ -1333,6 +1411,8 @@ manually in a running session. */);
 
   DEFSYM (Qw32con_get_pixel,
 	  "w32con-get-pixel");
+
+  DEFSYM (Qisearch, "isearch"); /* To look up the face. */
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);

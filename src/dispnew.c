@@ -108,6 +108,7 @@ extern void w32con_hide_cursor (void);
 extern void w32con_show_cursor (void);
 extern void w32con_save_cursor (void);
 extern void w32con_restore_cursor (void);
+extern void w32con_draw_cursor (struct frame *);
 #endif
 
 #if 0 /* Please leave this in as a debugging aid.  */
@@ -4058,20 +4059,26 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
       if (topmost_child->after_make_frame)
 	copy_child_glyphs (root, topmost_child);
     }
-
-  update_begin (root);
-  write_matrix (root, inhibit_scrolling, false);
-  make_matrix_current (root);
-  update_end (root);
-
   /* The selected frame determines where the cursor on ttys goes, except
      when it is a frame that is completely unrelated to the frame being
      displayed.  This can happen with multi-tty, when the selected frame
      can be a window-system frame.  */
+  struct frame *cf;
   if (frame_ancestor_p (root, SELECTED_FRAME ()))
-    tty_set_cursor (SELECTED_FRAME ());
+    cf = SELECTED_FRAME ();
   else
-    tty_set_cursor (root);
+    cf = root;
+
+  update_begin (root);
+#ifdef WINDOWSNT
+  tty_set_cursor (cf);
+  w32con_draw_cursor(cf);
+#endif  
+  write_matrix (root, inhibit_scrolling, false);
+  make_matrix_current (root);
+  update_end (root);
+
+  tty_set_cursor (cf);
 
   /* If a child is displayed, and the cursor is displayed in another
      frame, the child might lay above the cursor, so that it appears to
@@ -4147,15 +4154,23 @@ update_frame_with_menu (struct frame *f, int row, int col)
 
   /* Update the display.  */
   update_begin (f);
+#ifdef WINDOWSNT
+  if (row >= 0 && col >= 0)
+    cursor_to (f, row, col);
+  else
+    tty_set_cursor (f);  
+  w32con_draw_cursor (f);
+#endif  
   write_matrix (f, true, true);
   make_matrix_current (f);
-  clear_desired_matrices (f);
   /* ROW and COL tell us where in the menu to position the cursor, so
      that screen readers know the active region on the screen.  */
   if (row >= 0 && col >= 0)
     cursor_to (f, row, col);
   else
     tty_set_cursor (f);
+
+  clear_desired_matrices (f);
   update_end (f);
   flush_terminal (f);
 
@@ -5762,7 +5777,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
 
 #ifdef WINDOWSNT
       int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
-      if (!cursor_in_echo_area)
+      if (w32_use_visible_system_caret && !cursor_in_echo_area)
 	{
 	  w32con_save_cursor ();
 	  w32con_hide_cursor ();
@@ -5772,7 +5787,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       write_row (f, last_row, updating_menu_p);
 
 #ifdef WINDOWSNT
-      if (!cursor_in_echo_area)
+      if (w32_use_visible_system_caret && !cursor_in_echo_area)
 	{
 	  w32con_restore_cursor ();
 	  if (!prev_cursor_hidden) w32con_show_cursor ();
