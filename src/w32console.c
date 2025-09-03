@@ -318,7 +318,7 @@ w32con_draw_cursor (struct frame *f)
 	      int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
 	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
 	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
-	      porow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	      pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
 	      porow->enabled_p = 0;
 	      pnrow->enabled_p = 1;
 	    }
