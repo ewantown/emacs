@@ -281,50 +281,43 @@ w32con_draw_cursor (struct frame *f)
 {
   if (!using_system_caret)
     {
-      /* lookup the cursor face, or fallbacks if not found */
-      int cursor_face_id = lookup_named_face (NULL, f, Qcursor, NULL);
-      if (cursor_face_id == -1)
-	cursor_face_id = lookup_named_face (NULL, f, Qisearch, NULL);
-      if (cursor_face_id == -1)
-	cursor_face_id = lookup_named_face (NULL, f, Qtooltip, NULL);
-      if (cursor_face_id > -1)
+      int x = cursor_coords.X, y = cursor_coords.Y;
+      struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
+      struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
+      int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
+      if (glyph_face_id != CURSOR_FACE_ID)
 	{
-	  int x = cursor_coords.X, y = cursor_coords.Y;
-	  struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
-	  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
-	  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
-	  if (glyph_face_id != cursor_face_id)
+	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
+	  struct face *cursor_face = FACE_FROM_ID (f, CURSOR_FACE_ID);
+
+	  /* clean up from last run if faces conflicted */
+	  if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
 	    {
-	      struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
-	      struct face *cursor_face = FACE_FROM_ID (f, cursor_face_id);
-
-	      /* clean up from last run if faces conflicted */
-	      if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
-		{
-		  cursor_face->background = saved_cursor_bg;
-		  cursor_face->foreground = saved_cursor_fg;
-		  saved_cursor_bg = -9;
-		  saved_cursor_fg = -9;
-		}
-	      /* draw cursor (i.e. manipulate faces) */
-	      if (cursor_face->background == glyph_face->background)
-		{
-		  saved_cursor_bg = cursor_face->background;
-		  saved_cursor_fg = cursor_face->foreground;
-		  cursor_face->background = glyph_face->foreground;
-		  cursor_face->foreground = glyph_face->background;
-		}
-	      nrow->glyphs[TEXT_AREA][x].face_id = cursor_face_id;
-
-	      /* force a rewrite including spaces */
-	      FRAME_TTY (f)->must_write_spaces = 1;
-	      orow->enabled_p = 0;
-	      nrow->enabled_p = 1;
-	      if (prev_y > -1)
-		{
-		  (MATRIX_ROW (f->current_matrix, prow))->enabled_p = 0;
-		  (MATRIX_ROW (f->desired_matrix, prow))->enabled_p = 1;
+	      cursor_face->background = saved_cursor_bg;
+	      cursor_face->foreground = saved_cursor_fg;
+	      saved_cursor_bg = -9;
+	      saved_cursor_fg = -9;
 	    }
+	  /* draw cursor (i.e. manipulate faces) */
+	  if (cursor_face->background == glyph_face->background)
+	    {
+	      saved_cursor_bg = cursor_face->background;
+	      saved_cursor_fg = cursor_face->foreground;
+	      cursor_face->background = glyph_face->foreground;
+	      cursor_face->foreground = glyph_face->background;
+	    }
+	  nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
+
+	  /* force a rewrite including spaces */
+	  FRAME_TTY (f)->must_write_spaces = 1;
+	  orow->enabled_p = 0;
+	  nrow->enabled_p = 1;
+	  if (prow > -1)
+	    {
+	      (MATRIX_ROW (f->current_matrix, prow))->enabled_p = 0;
+	      (MATRIX_ROW (f->desired_matrix, prow))->enabled_p = 1;
+	    }
+	  prow = y;
 	}
     }
 }
