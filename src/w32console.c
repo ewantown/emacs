@@ -314,19 +314,20 @@ w32con_draw_cursor (struct frame *f)
 	  orow->enabled_p = 0;
 	  nrow->enabled_p = 1;
 
-	  /* /\* force a rewrite of old cursor row (if needed) *\/ */
-	  /* int px = prev_cursor_pos.X, py = prev_cursor_pos.Y; */
-	  /* if (saved_face_id > -1 && (px != x || py != y)) */
-	  /*   { */
-	  /*     struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py); */
-	  /*     if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID) */
-	  /* 	pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id; */
-	  /*     porow->enabled_p = 0; */
-	  /*     pnrow->enabled_p = 1; */
-	  /*   } */
-	  /* saved_face_id = glyph_face_id; */
-	  /* prev_cursor_pos.X = x; */
-	  /* prev_cursor_pos.Y = y; */
+	  /* force a rewrite of old cursor row (if needed) */
+	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
+	  if (saved_face_id > -1 && (px != x || py != y))
+	    {
+	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
+	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
+	      if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
+		pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	      porow->enabled_p = 0;
+	      pnrow->enabled_p = 1;
+	    }
+	  saved_face_id = glyph_face_id;
+	  prev_cursor_pos.X = x;
+	  prev_cursor_pos.Y = y;
 	}
     }
 }
