@@ -275,7 +275,8 @@ w32con_restore_cursor (void)
 /* This function only to be called immediately before write_matrix */
 static unsigned long saved_cursor_bg = -9;
 static unsigned long saved_cursor_fg = -9;
-static COORD prow = -1;
+static COORD prev_cursor_pos = { -1, -1 };
+static int saved_face_id = -1;
 void
 w32con_draw_cursor (struct frame *f)
 {
@@ -312,12 +313,18 @@ w32con_draw_cursor (struct frame *f)
 	  FRAME_TTY (f)->must_write_spaces = 1;
 	  orow->enabled_p = 0;
 	  nrow->enabled_p = 1;
-	  if (prow > -1)
+	  if (saved_face_id > -1)
 	    {
-	      (MATRIX_ROW (f->current_matrix, prow))->enabled_p = 0;
-	      (MATRIX_ROW (f->desired_matrix, prow))->enabled_p = 1;
+	      int px = prev_cursor_pos.X, int py = prev_cursor_pos.Y;
+	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
+	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
+	      pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	      porow->enabled_p = 0;
+	      pnrow->enabled_p = 1;
 	    }
-	  prow = y;
+	  saved_face_id = glyph_face_id;
+	  prev_cursor_pos.X = x;
+	  prev_cursor_pos.Y = y;
 	}
     }
 }
