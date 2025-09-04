@@ -307,13 +307,15 @@ w32con_draw_cursor (struct frame *f)
 	      cursor_face->background = glyph_face->foreground;
 	      cursor_face->foreground = glyph_face->background;
 	    }
-	  nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
+	  if (!(FRAME_TTY (f)->cursor_hidden))
+	    {
+	      nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
 
-	  /* force a rewrite of new cursor row (including spaces) */
-	  FRAME_TTY (f)->must_write_spaces = 1;
-	  orow->enabled_p = 0;
-	  nrow->enabled_p = 1;
-
+	      /* force a rewrite of new cursor row (including spaces) */
+	      FRAME_TTY (f)->must_write_spaces = 1;
+	      orow->enabled_p = 0;
+	      nrow->enabled_p = 1;
+	    }
 	  /* force a rewrite of old cursor row (if needed) */
 	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
 	  if (saved_face_id > -1 && (px != x || py != y))
