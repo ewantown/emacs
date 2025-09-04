@@ -900,7 +900,12 @@ w32con_update_begin (struct frame * f)
 
   if (using_system_caret != w32_use_visible_system_caret)
     {
-      if (using_system_caret) w32con_hide_cursor ();
+      int prev_cursor_visible = current_tty->cursor_hidden;
+      if (using_system_caret)
+	{
+	  w32con_hide_cursor ();
+	  current_tty->cursor_hidden = prev_cursor_hidden;
+	}
 
       using_system_caret = w32_use_visible_system_caret;
 
