@@ -228,8 +228,8 @@ w32con_hide_cursor (void)
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = FALSE;
 
-      if (w32_use_virtual_terminal_sequences)
-	if (!current_tty->cursor_hidden)
+      if (!current_tty->cursor_hidden)
+	if (w32_use_virtual_terminal_sequences)
 	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
 	else
 	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -245,8 +245,8 @@ w32con_show_cursor (void)
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = TRUE;
 
-      if (w32_use_virtual_terminal_sequences)
-	if (current_tty->cursor_hidden)
+      if (current_tty->cursor_hidden)
+	if (w32_use_virtual_terminal_sequences)
 	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
 	else
 	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -897,7 +897,6 @@ w32con_update_begin (struct frame * f)
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
     }
-
   if (using_system_caret != w32_use_visible_system_caret)
     {
       int prev_cursor_hidden = current_tty->cursor_hidden;
@@ -906,7 +905,6 @@ w32con_update_begin (struct frame * f)
 	  w32con_hide_cursor ();
 	  current_tty->cursor_hidden = prev_cursor_hidden;
 	}
-
       using_system_caret = w32_use_visible_system_caret;
 
       if (using_system_caret) /* need to sync */
