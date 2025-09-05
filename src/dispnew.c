@@ -4052,16 +4052,16 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
       if (topmost_child->after_make_frame)
 	copy_child_glyphs (root, topmost_child);
     }
-  /* The selected frame determines where the cursor on ttys goes, except
-     when it is a frame that is completely unrelated to the frame being
-     displayed.  This can happen with multi-tty, when the selected frame
-     can be a window-system frame.  */
 
   update_begin (root);
   write_matrix (root, inhibit_scrolling, false);
   make_matrix_current (root);
   update_end (root);
-  struct frame *cf;
+
+  /* The selected frame determines where the cursor on ttys goes, except
+     when it is a frame that is completely unrelated to the frame being
+     displayed.  This can happen with multi-tty, when the selected frame
+     can be a window-system frame.  */
   if (frame_ancestor_p (root, SELECTED_FRAME ()))
     tty_set_cursor (SELECTED_FRAME ());
   else
@@ -4149,7 +4149,7 @@ update_frame_with_menu (struct frame *f, int row, int col)
   if (row >= 0 && col >= 0)
     cursor_to (f, row, col);
   else
-    tty_set_cursor (f);  
+    tty_set_cursor (f);
   update_end (f);
   flush_terminal (f);
 
@@ -5747,16 +5747,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
      is done so that messages are made visible when pausing.  */
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
-    {
-      /* This special case handles system cursor flashing in/to the echo
-      area when running with color backgrounds in Windows Terminal. We
-      have one cursor, it moves into whatever row we write, and Windows
-      draws it there. We don't want the cursor jumping at every echo.
-      So we hide it when it jumps, and it just "flickers" in-place. */
-
       write_row (f, last_row, updating_menu_p);
-    }
-
 
   if (first_row >= 0)
     for (int i = first_row; i < last_row; ++i)
