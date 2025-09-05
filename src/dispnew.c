@@ -5747,7 +5747,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
      is done so that messages are made visible when pausing.  */
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
-      write_row (f, last_row, updating_menu_p);
+    write_row (f, last_row, updating_menu_p);
 
   if (first_row >= 0)
     for (int i = first_row; i < last_row; ++i)
