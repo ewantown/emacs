@@ -103,6 +103,7 @@ static void adjust_frame_glyphs_for_frame_redisplay (struct frame *);
 static void set_window_update_flags (struct window *w, bool on_p);
 static void tty_set_cursor (struct frame *f);
 
+
 #if 0 /* Please leave this in as a debugging aid.  */
 static void
 check_rows (struct frame *f)
@@ -4055,18 +4056,16 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
      when it is a frame that is completely unrelated to the frame being
      displayed.  This can happen with multi-tty, when the selected frame
      can be a window-system frame.  */
-  struct frame *cf;
-  if (frame_ancestor_p (root, SELECTED_FRAME ()))
-    cf = SELECTED_FRAME ();
-  else
-    cf = root;
 
   update_begin (root);
   write_matrix (root, inhibit_scrolling, false);
   make_matrix_current (root);
   update_end (root);
-
-  tty_set_cursor (cf);
+  struct frame *cf;
+  if (frame_ancestor_p (root, SELECTED_FRAME ()))
+    tty_set_cursor (SELECTED_FRAME ());
+  else
+    tty_set_cursor (root);
 
   /* If a child is displayed, and the cursor is displayed in another
      frame, the child might lay above the cursor, so that it appears to
@@ -4144,14 +4143,13 @@ update_frame_with_menu (struct frame *f, int row, int col)
   update_begin (f);
   write_matrix (f, true, true);
   make_matrix_current (f);
+  clear_desired_matrices (f);
   /* ROW and COL tell us where in the menu to position the cursor, so
      that screen readers know the active region on the screen.  */
   if (row >= 0 && col >= 0)
     cursor_to (f, row, col);
   else
-    tty_set_cursor (f);
-
-  clear_desired_matrices (f);
+    tty_set_cursor (f);  
   update_end (f);
   flush_terminal (f);
 
