@@ -206,51 +206,26 @@ w32con_move_cursor (struct frame *f, int row, int col)
 {
   cursor_coords.X = col;
   cursor_coords.Y = row;
-  if (w32_use_virtual_terminal_sequences)
-    {
-      char seq[32];
-      sprintf(seq, "\x1b[%d;%dH", row + 1, col + 1); /* 1-indexed */
-      w32con_write_vt_seq(seq);
-    }
-  else
-  {
-    /* TODO: for multi-tty support, cur_screen should be replaced with a
-       reference to the terminal for this frame.  */
-    SetConsoleCursorPosition (cur_screen, cursor_coords);
-  }
+  /* TODO: for multi-tty support, cur_screen should be replaced with a
+     reference to the terminal for this frame.  */
+  SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
 void
 w32con_hide_cursor (void)
 {
-  if (using_system_caret)
-    {
-      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-      console_cursor_info.bVisible = FALSE;
-
-      if (!current_tty->cursor_hidden)
-	if (w32_use_virtual_terminal_sequences)
-	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
-	else
-	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-    }
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = FALSE;
+  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
   current_tty->cursor_hidden = 1;
 }
 
 void
 w32con_show_cursor (void)
 {
-  if (using_system_caret)
-    {
-      GetConsoleCursorInfo (cur_screen, &console_cursor_info);
-      console_cursor_info.bVisible = TRUE;
-
-      if (current_tty->cursor_hidden)
-	if (w32_use_virtual_terminal_sequences)
-	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
-	else
-	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
-    }
+  GetConsoleCursorInfo (cur_screen, &console_cursor_info);
+  console_cursor_info.bVisible = TRUE;
+  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
   current_tty->cursor_hidden = 0;
 }
 
@@ -258,80 +233,13 @@ void
 w32con_save_cursor (void)
 {
   saved_coords = cursor_coords;
-  if (w32_use_virtual_terminal_sequences)
-    w32con_write_vt_seq ((char *) "\x1b[7");
 }
 
 void
 w32con_restore_cursor (void)
 {
   cursor_coords = saved_coords;
-  if (w32_use_virtual_terminal_sequences)
-    w32con_write_vt_seq ((char *) "\x1b[8");
-  else
-    SetConsoleCursorPosition (cur_screen, cursor_coords);
-}
-
-/* This function only to be called immediately before write_matrix */
-static unsigned long saved_cursor_bg = -9;
-static unsigned long saved_cursor_fg = -9;
-static COORD prev_cursor_pos = { -1, -1 };
-static int saved_face_id = -1;
-void
-w32con_draw_cursor (struct frame *f)
-{
-  if (!using_system_caret)
-    {
-      int x = cursor_coords.X, y = cursor_coords.Y;
-      struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
-      struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
-      int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
-      if (glyph_face_id != CURSOR_FACE_ID)
-	{
-	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
-	  struct face *cursor_face = FACE_FROM_ID (f, CURSOR_FACE_ID);
-
-	  /* clean up from last run if faces conflicted */
-	  if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
-	    {
-	      cursor_face->background = saved_cursor_bg;
-	      cursor_face->foreground = saved_cursor_fg;
-	      saved_cursor_bg = -9;
-	      saved_cursor_fg = -9;
-	    }
-	  /* draw cursor (i.e. manipulate faces) */
-	  if (cursor_face->background == glyph_face->background)
-	    {
-	      saved_cursor_bg = cursor_face->background;
-	      saved_cursor_fg = cursor_face->foreground;
-	      cursor_face->background = glyph_face->foreground;
-	      cursor_face->foreground = glyph_face->background;
-	    }
-	  if (!(FRAME_TTY (f)->cursor_hidden))
-	    {
-	      nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
-
-	      /* force a rewrite of new cursor row (including spaces) */
-	      FRAME_TTY (f)->must_write_spaces = 1;
-	      orow->enabled_p = 0;
-	      nrow->enabled_p = 1;
-	    }
-	  /* force a rewrite of old cursor row (if needed) */
-	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
-	  if (saved_face_id > -1 && (px != x || py != y))
-	    {
-	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
-	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
-	      if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
-		pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
-	      porow->enabled_p = 0;
-	      pnrow->enabled_p = 1;
-	    }
-	  saved_face_id = glyph_face_id;
-	  prev_cursor_pos.X = x;
-	  prev_cursor_pos.Y = y;
-	}
-    }
+  SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
 /***********************************************************************
@@ -342,46 +250,28 @@ w32con_draw_cursor (struct frame *f)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      turn_on_face (f, space_glyph.face_id);
-      w32con_write_vt_seq ("\x1b[1J");
-      turn_off_face (f, space_glyph.face_id);
-    }
-  else
-    {
-      w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
-      int n = FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1;
-      w32con_ins_del_lines (f, cursor_coords.Y, n);
-    }
+  w32con_clear_end_of_line (f, FRAME_COLS (f) - 1);
+  int n = FRAME_TOTAL_LINES (f) - cursor_coords.Y - 1;
+  w32con_ins_del_lines (f, cursor_coords.Y, n);
 }
 
 /* Clear the frame.  */
 static void
 w32con_clear_frame (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      turn_on_face (f, space_glyph.face_id);
-      w32con_write_vt_seq ("\x1b[2J\x1b[3J");
-      turn_off_face (f, space_glyph.face_id);
-    }
-  else
-    {
-      COORD	     dest;
-      int        n;
-      DWORD      r;
-      CONSOLE_SCREEN_BUFFER_INFO info;
-      
-      GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
-      
-      /* Remember that the screen buffer might be wider than the window.  */
-      n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
-      dest.X = dest.Y = 0;
-      
-      FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
-      FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
-    }
+  COORD	     dest;
+  int        n;
+  DWORD      r;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+
+  GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
+
+  /* Remember that the screen buffer might be wider than the window.  */
+  n = FRAME_TOTAL_LINES (f) * info.dwSize.X;
+  dest.X = dest.Y = 0;
+
+  FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
+  FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
   w32con_move_cursor (f, 0, 0);
 }
 
@@ -395,113 +285,91 @@ static BOOL  ceol_initialized = FALSE;
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
-  if (w32_use_virtual_terminal_sequences)
+  /* Time to reallocate our "empty row"?  With today's large screens,
+     it is not unthinkable to see TTY frames well in excess of
+     80-character width.  */
+  if (end - cursor_coords.X > glyphs_len)
     {
-      turn_on_face (f, space_glyph.face_id);
-      w32con_write_vt_seq ("\x1b[0K");
-      turn_off_face (f, space_glyph.face_id);
+      if (glyphs == glyph_base)
+	glyphs = NULL;
+      glyphs = xrealloc (glyphs, FRAME_COLS (f) * sizeof (struct glyph));
+      glyphs_len = FRAME_COLS (f);
+      ceol_initialized = FALSE;
     }
-  else
+  if (!ceol_initialized)
     {
-      /* Time to reallocate our "empty row"?  With today's large screens,
-	 it is not unthinkable to see TTY frames well in excess of
-	 80-character width.  */
-      if (end - cursor_coords.X > glyphs_len)
+      int i;
+      for (i = 0; i < glyphs_len; i++)
 	{
-	  if (glyphs == glyph_base)
-	    glyphs = NULL;
-	  glyphs = xrealloc (glyphs, FRAME_COLS (f) * sizeof (struct glyph));
-	  glyphs_len = FRAME_COLS (f);
-	  ceol_initialized = FALSE;
+	  memcpy (&glyphs[i], &space_glyph, sizeof (struct glyph));
+	  glyphs[i].frame = NULL;
 	}
-      if (!ceol_initialized)
-	{
-	  int i;
-	  for (i = 0; i < glyphs_len; i++)
-	    {
-	      memcpy (&glyphs[i], &space_glyph, sizeof (struct glyph));
-	      glyphs[i].frame = NULL;
-	    }
-	  ceol_initialized = TRUE;
-	}
-      w32con_write_glyphs (f, glyphs, end - cursor_coords.X);
+      ceol_initialized = TRUE;
     }
+  w32con_write_glyphs (f, glyphs, end - cursor_coords.X);
 }
 
 /* Insert n lines at vpos. if n is negative delete -n lines.  */
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      char seq[32];
-      char *fmt = n < 0 ? "\x1b[%dL" : "\x1b[%dM";
-      sprintf (seq, fmt, abs (n));
+  int	     i, nb;
+  SMALL_RECT scroll;
+  SMALL_RECT clip;
+  COORD	     dest;
+  CHAR_INFO  fill;
 
-      turn_on_face (f, space_glyph.face_id);
-      w32con_write_vt_seq (seq);
-      turn_off_face (f, space_glyph.face_id);
+  if (n < 0)
+    {
+      scroll.Top = vpos - n;
+      scroll.Bottom = FRAME_TOTAL_LINES (f);
+      dest.Y = vpos;
     }
   else
     {
-      int	     i, nb;
-      SMALL_RECT scroll;
-      SMALL_RECT clip;
-      COORD	     dest;
-      CHAR_INFO  fill;
+      scroll.Top = vpos;
+      scroll.Bottom = FRAME_TOTAL_LINES (f) - n;
+      dest.Y = vpos + n;
+    }
+  clip.Top = clip.Left = scroll.Left = 0;
+  clip.Right = scroll.Right = FRAME_COLS (f);
+  clip.Bottom = FRAME_TOTAL_LINES (f);
 
-      if (n < 0)
+  dest.X = 0;
+
+  fill.Char.AsciiChar = 0x20;
+  fill.Attributes = char_attr_normal;
+
+  ScrollConsoleScreenBuffer (cur_screen, &scroll, &clip, dest, &fill);
+
+  /* Here we have to deal with a w32 console flake: If the scroll
+     region looks like abc and we scroll c to a and fill with d we get
+     cbd... if we scroll block c one line at a time to a, we get cdd...
+     Emacs expects cdd consistently... So we have to deal with that
+     here... (this also occurs scrolling the same way in the other
+     direction.  */
+
+  if (n > 0)
+    {
+      if (scroll.Bottom < dest.Y)
 	{
-	  scroll.Top = vpos - n;
-	  scroll.Bottom = FRAME_TOTAL_LINES (f);
-	  dest.Y = vpos;
-	}
-      else
-	{
-	  scroll.Top = vpos;
-	  scroll.Bottom = FRAME_TOTAL_LINES (f) - n;
-	  dest.Y = vpos + n;
-	}
-      clip.Top = clip.Left = scroll.Left = 0;
-      clip.Right = scroll.Right = FRAME_COLS (f);
-      clip.Bottom = FRAME_TOTAL_LINES (f);
-
-      dest.X = 0;
-
-      fill.Char.AsciiChar = 0x20;
-      fill.Attributes = char_attr_normal;
-
-      ScrollConsoleScreenBuffer (cur_screen, &scroll, &clip, dest, &fill);
-
-      /* Here we have to deal with a w32 console flake: If the scroll
-	 region looks like abc and we scroll c to a and fill with d we get
-	 cbd... if we scroll block c one line at a time to a, we get cdd...
-	 Emacs expects cdd consistently... So we have to deal with that
-	 here... (this also occurs scrolling the same way in the other
-	 direction.  */
-
-      if (n > 0)
-	{
-	  if (scroll.Bottom < dest.Y)
+	  for (i = scroll.Bottom; i < dest.Y; i++)
 	    {
-	      for (i = scroll.Bottom; i < dest.Y; i++)
-		{
-		  w32con_move_cursor (f, i, 0);
-		  w32con_clear_end_of_line (f, FRAME_COLS (f));
-		}
+	      w32con_move_cursor (f, i, 0);
+	      w32con_clear_end_of_line (f, FRAME_COLS (f));
 	    }
 	}
-      else
-	{
-	  nb = dest.Y + (scroll.Bottom - scroll.Top) + 1;
+    }
+  else
+    {
+      nb = dest.Y + (scroll.Bottom - scroll.Top) + 1;
 
-	  if (nb < scroll.Top)
+      if (nb < scroll.Top)
+	{
+	  for (i = nb; i < scroll.Top; i++)
 	    {
-	      for (i = nb; i < scroll.Top; i++)
-		{
-		  w32con_move_cursor (f, i, 0);
-		  w32con_clear_end_of_line (f, FRAME_COLS (f));
-		}
+	      w32con_move_cursor (f, i, 0);
+	      w32con_clear_end_of_line (f, FRAME_COLS (f));
 	    }
 	}
     }
@@ -518,45 +386,32 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
-  if (w32_use_virtual_terminal_sequences)
-    {
-      char seq[32];
-      char *fmt = direction == LEFT ? "\x1b[%d@" : "\x1b[%dP";
-      sprintf (seq, fmt, abs (dist));
+  SMALL_RECT scroll, clip;
+  COORD	     dest;
+  CHAR_INFO  fill;
 
-      turn_on_face (f, space_glyph.face_id);
-      w32con_write_vt_seq (seq);
-      turn_off_face (f, space_glyph.face_id);
+  clip.Top = scroll.Top = clip.Bottom = scroll.Bottom = cursor_coords.Y;
+  clip.Left = 0;
+  clip.Right = FRAME_COLS (f);
+
+  if (direction == LEFT)
+    {
+      scroll.Left = cursor_coords.X + dist;
+      scroll.Right = FRAME_COLS (f) - 1;
     }
   else
     {
-      SMALL_RECT scroll, clip;
-      COORD	     dest;
-      CHAR_INFO  fill;
-      
-      clip.Top = scroll.Top = clip.Bottom = scroll.Bottom = cursor_coords.Y;
-      clip.Left = 0;
-      clip.Right = FRAME_COLS (f);
-      
-      if (direction == LEFT)
-	{
-	  scroll.Left = cursor_coords.X + dist;
-	  scroll.Right = FRAME_COLS (f) - 1;
-	}
-      else
-	{
-	  scroll.Left = cursor_coords.X;
-	  scroll.Right = FRAME_COLS (f) - dist - 1;
-	}
-      
-      dest.X = cursor_coords.X;
-      dest.Y = cursor_coords.Y;
-      
-      fill.Char.AsciiChar = 0x20;
-      fill.Attributes = char_attr_normal;
-      
-      ScrollConsoleScreenBuffer (cur_screen, &scroll, &clip, dest, &fill);
+      scroll.Left = cursor_coords.X;
+      scroll.Right = FRAME_COLS (f) - dist - 1;
     }
+
+  dest.X = cursor_coords.X;
+  dest.Y = cursor_coords.Y;
+
+  fill.Char.AsciiChar = 0x20;
+  fill.Attributes = char_attr_normal;
+
+  ScrollConsoleScreenBuffer (cur_screen, &scroll, &clip, dest, &fill);
 }
 
 
@@ -588,6 +443,8 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
   WORD char_attr;
   LPCSTR conversion_buffer;
   struct coding_system *coding;
+
+  w32con_hide_cursor();
 
   if (len <= 0)
     return;
@@ -898,25 +755,6 @@ w32con_update_begin (struct frame * f)
     {
       tty_setup_colors (current_tty, 16);
       safe_calln (Qw32con_set_up_initial_frame_faces);
-    }
-  if (using_system_caret != w32_use_visible_system_caret)
-    {
-      int prev_cursor_hidden = current_tty->cursor_hidden;
-      if (using_system_caret)
-	{
-	  w32con_hide_cursor ();
-	  current_tty->cursor_hidden = prev_cursor_hidden;
-	}
-      using_system_caret = w32_use_visible_system_caret;
-
-      if (using_system_caret) /* need to sync */
-	{
-	  current_tty->cursor_hidden = !current_tty->cursor_hidden;
-	  if (current_tty->cursor_hidden)
-	    w32con_show_cursor ();
-	  else
-	    w32con_hide_cursor ();
-	}
     }
 }
 

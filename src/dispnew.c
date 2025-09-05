@@ -103,14 +103,6 @@ static void adjust_frame_glyphs_for_frame_redisplay (struct frame *);
 static void set_window_update_flags (struct window *w, bool on_p);
 static void tty_set_cursor (struct frame *f);
 
-#ifdef WINDOWSNT
-extern void w32con_hide_cursor (void);
-extern void w32con_show_cursor (void);
-extern void w32con_save_cursor (void);
-extern void w32con_restore_cursor (void);
-extern void w32con_draw_cursor (struct frame *);
-#endif
-
 #if 0 /* Please leave this in as a debugging aid.  */
 static void
 check_rows (struct frame *f)
@@ -4070,10 +4062,6 @@ combine_updates_for_frame (struct frame *f, bool inhibit_scrolling)
     cf = root;
 
   update_begin (root);
-#ifdef WINDOWSNT
-  tty_set_cursor (cf);
-  w32con_draw_cursor(cf);
-#endif  
   write_matrix (root, inhibit_scrolling, false);
   make_matrix_current (root);
   update_end (root);
@@ -4154,13 +4142,6 @@ update_frame_with_menu (struct frame *f, int row, int col)
 
   /* Update the display.  */
   update_begin (f);
-#ifdef WINDOWSNT
-  if (row >= 0 && col >= 0)
-    cursor_to (f, row, col);
-  else
-    tty_set_cursor (f);  
-  w32con_draw_cursor (f);
-#endif  
   write_matrix (f, true, true);
   make_matrix_current (f);
   /* ROW and COL tell us where in the menu to position the cursor, so
@@ -5775,24 +5756,7 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       draws it there. We don't want the cursor jumping at every echo.
       So we hide it when it jumps, and it just "flickers" in-place. */
 
-#ifdef WINDOWSNT
-      int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
-      if (w32_use_visible_system_caret && !cursor_in_echo_area)
-	{
-	  w32con_save_cursor ();
-	  w32con_hide_cursor ();
-	}
-#endif
-
       write_row (f, last_row, updating_menu_p);
-
-#ifdef WINDOWSNT
-      if (w32_use_visible_system_caret && !cursor_in_echo_area)
-	{
-	  w32con_restore_cursor ();
-	  if (!prev_cursor_hidden) w32con_show_cursor ();
-	}
-#endif
     }
 
 
