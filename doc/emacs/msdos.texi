@@ -1208,7 +1208,7 @@ because historically, Windows required use of an idiosyncractic API.
 That API limited Windows Console display of Emacs to 16 basic colors.
 With the introduction of Windows Terminal, Microsoft implemented
 support for ASCII control sequences, modelled on the VT100 and Xterm,
-and 24-bit RBG color display.
+as well as 24-bit RBG color display.
 
   The variable @code{w32-use-virtual-terminal-sequences} determines
 whether this newer mechanism is used for display, or the older one. 
@@ -1224,8 +1224,7 @@ the change in value should be immediately followed by a call to
 @code{set-frame-parameter} (re)setting @code{'tty-color-mode}, or
 at very least, a call to @code{w32con-set-up-initial-frame-faces}.
 
-  One note on the transition away from the old Windows Console API.
-TTY Emacs traditionally leaves text cursor display up to the terminal.
+   TTY Emacs traditionally leaves text cursor display up to the terminal.
 Screen updates via the Windows Console API were performed directly on
 regions of the screen buffer, without any need to move the cursor during
 a display update. Virtual terminal sequences require moving the cursor
@@ -1243,7 +1242,7 @@ but leaves (2) as an option. When @code{w32-use-visible-system-caret} is
 @code{nil}, a solid non-blinking text cursor will displayed (in the
 'cursor' face). When it is non-@code{nil}, a system cursor will be shown
 (possibly with a slight flicker). This change is independent of
-@code{w32-use-virtual-terminal-sequences}, but required for a smooth UX.
+@code{w32-use-virtual-terminal-sequences}.
 
 
 @ifnottex
