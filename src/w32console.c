@@ -123,7 +123,6 @@ static WORD     char_attr_normal;
 static WORD     bg_normal;
 static WORD     fg_normal;
 static DWORD    prev_console_mode;
-static int      using_system_caret;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
 #ifndef USE_SEPARATE_SCREEN
@@ -524,6 +523,8 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   struct coding_system *coding;
   DWORD filled, written;
 
+  tty_hide_cursor (tty);
+
   if (len <= 0)
     return;
 
@@ -702,11 +703,9 @@ w32con_set_terminal_modes (struct terminal *t)
 {
   CONSOLE_CURSOR_INFO cci;
 
-  using_system_caret = w32_use_visible_system_caret;
-
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = using_system_caret ? TRUE : FALSE;
+  cci.bVisible = TRUE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);
