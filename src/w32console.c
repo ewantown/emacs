@@ -523,7 +523,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
   struct coding_system *coding;
   DWORD filled, written;
 
-  tty_hide_cursor (tty);
+  w32con_hide_cursor ();
 
   if (len <= 0)
     return;
