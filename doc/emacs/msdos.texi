@@ -1165,7 +1165,7 @@ anywhere else.
   The variable @code{w32-use-visible-system-caret} is a flag that
 determines whether to make the system caret visible.  The default when
 no screen reader software is in use is @code{nil}, which means Emacs
-draws its own cursor to indicate the position of point.  A
+draws its own cursor to indicate the position of point. A
 non-@code{nil} value means Emacs will indicate point location with the
 system caret; this facilitates use of screen reader software, and is
 the default when such software is detected when running Emacs.
@@ -1199,6 +1199,30 @@ variable affects only the Emacs frames created after the change, so
 you should set its value in your init file (@pxref{Init File}), either
 directly or via @kbd{M-x customize-variable}, which lets you save the
 customized value, see @ref{Saving Customizations}.
+
+@vindex w32-use-virtual-terminal-sequences
+@cindex Windows Terminal, Windows Console, MS-Windows
+  The implementation of display functionality for Windows Console
+differs from the implementation for other terminal emulators,
+because historically, Windows required use of an idiosyncractic API.
+That API limited Windows Console display of Emacs to 16 basic colors.
+With the introduction of Windows Terminal, Microsoft implemented
+support for ASCII control sequences, modelled on the VT100 and Xterm,
+and 24-bit RBG color display.
+
+  The variable @code{w32-use-virtual-terminal-sequences} determines
+whether this newer mechanism is used for display, or the older one. 
+It is automatically set based on your terminal's capabilities on 
+startup. If it is non-nil, Emacs will use ASCII escape sequences for 
+cursor and color display. By default, 24-bit RGB color will be used,
+but other (8, 16, 256) color spaces may be used, by passing the
+@code{--color} command line argument, or setting the value of the
+@code{tty-color-mode} frame parameter.
+
+  Any time @code{w32-use-virtual-terminal-sequences} is set manually,
+the change in value should be immediately followed by a call to
+@code{set-frame-parameter} (re)setting @code{'tty-color-mode}, or
+at very least, a call to @code{w32con-set-up-initial-frame-faces}.
 
 @ifnottex
 @include msdos-xtra.texi

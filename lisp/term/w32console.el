@@ -24,8 +24,7 @@
 
 ;;; Code:
 
-;; W32 uses different color indexes than standard:
-
+;; W32 uses different color indexes than standard
 (defvar w32-tty-standard-colors
   '(("black"          0     0     0     0)
     ("blue"           1     0     0 52480) ; MediumBlue
@@ -43,12 +42,82 @@
     ("lightmagenta"  13 65535     0 65535) ; Magenta
     ("yellow"        14 65535 65535     0) ; Yellow
     ("white"         15 65535 65535 65535))
-"A list of VGA console colors, their indices and 16-bit RGB values.")
+  "A list of VGA console colors, their indices and 16-bit RGB values.")
+
+;; When using VT sequences for color, use xterm-like indices
+(defvar w32-tty-virtual-terminal-base-colors
+  '(("black"          0     0     0     0)
+    ("red"            1 45568  8704  8704) ; FireBrick
+    ("green"          2  8704 35584  8704) ; ForestGreen
+    ("brown"          3 40960 20992 11520) ; Sienna
+    ("blue"           4     0     0 52480) ; MediumBlue
+    ("magenta"        5 35584     0 35584) ; DarkMagenta
+    ("cyan"           6     0 52736 53504) ; DarkTurquoise
+    ("lightgray"      7 48640 48640 48640) ; Gray
+    ("darkgray"       8 26112 26112 26112) ; Gray40
+    ("lightred"       9 65535     0     0) ; Red
+    ("lightgreen"    10     0 65535     0) ; Green
+    ("yellow"        11 65535 65535     0) ; Yellow
+    ("lightblue"     12     0     0 65535) ; Blue
+    ("lightmagenta"  13 65535     0 65535) ; Magenta
+    ("lightcyan"     14     0 65535 65535) ; Cyan
+    ("white"         15 65535 65535 65535))
+  "A list of VGA console colors, their indices and 16-bit RGB values.")
 
 (declare-function x-setup-function-keys "term/common-win" (frame))
 (declare-function get-screen-color "w32console.c" ())
 (declare-function w32-get-console-codepage "w32proc.c" ())
 (declare-function w32-get-console-output-codepage "w32proc.c" ())
+
+(defun w32con-define-base-colors ()
+  "Defines base 16-color space for w32 console."
+  (let* ((colors (if w32-use-virtual-terminal-sequences
+                     w32-tty-virtual-terminal-base-colors
+                   w32-tty-standard-colors))
+         (nbase (length colors))
+         (color (car colors)))
+    (progn (while colors
+             (tty-color-define (car color) (cadr color) (cddr color))
+             (setq colors (cdr colors)
+                   color  (car colors)))
+           nbase)))
+
+;; Note: tty-color-define swaps passed index for pixel on 24bit terminal
+;; So, we need this function to "recover" the terminal's native mapping
+(defun w32con-get-pixel (index)
+  "Convert a base-color index into a pixel (index into 24bit map)"
+  (let ((color (nth index w32-tty-virtual-terminal-base-colors)))
+    (or (tty-color-24bit (cddr color)) index)))
+
+(defun w32con-define-256-colors ()
+  "Defines 256-color space for w32 console."
+  (let ((r 0) (b 0) (g 0)
+        (n (- 256 (w32con-define-base-colors)))
+        (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
+    (while (> n 24) ; non-grey
+      (let ((i (- 256 n))
+            (c (mapcar convert-to-16bit
+                       (mapcar (lambda (x) (if (zerop x) 0 (+ (* x 40) 55)))
+                               (list r g b)))))
+        (tty-color-define (format "color-%d" i) i c))
+      (setq b (1+ b))
+      (when (> b 5) (setq g (1+ g) b 0))
+      (when (> g 5) (setq r (1+ r) g 0))
+      (setq n (1- n)))
+    (while (> n 0) ; all-grey
+      (let* ((i (- 256 n))
+             (v (funcall convert-to-16bit (+ 8 (* (- 24 n) 10))))
+             (c (list v v v)))
+        (tty-color-define (format "color-%d" i) i c))
+      (setq n (1- n)))))
+
+(defun w32con-define-24bit-colors ()
+  "Defines 24-bit color space for w32 console."
+  (let ((i (w32con-define-base-colors)))
+    (mapc (lambda (c) (unless (assoc (car c) w32-tty-standard-colors)
+                   (tty-color-define (car c) i (cdr c))
+                   (setq i (1+ i))))
+          color-name-rgb-alist)))
 
 (defun terminal-init-w32console ()
   "Terminal initialization function for w32 console."
@@ -56,42 +125,49 @@
   (x-setup-function-keys (selected-frame))
   ;; Set terminal and keyboard encodings to the current OEM codepage.
   (let ((oem-code-page-coding
-	 (intern (format "cp%d" (w32-get-console-codepage))))
-	(oem-code-page-output-coding
-	 (intern (format "cp%d" (w32-get-console-output-codepage))))
-	oem-cs-p oem-o-cs-p)
-	(setq oem-cs-p (coding-system-p oem-code-page-coding))
-	(setq oem-o-cs-p (coding-system-p oem-code-page-output-coding))
-	(when oem-cs-p
-	  (set-keyboard-coding-system oem-code-page-coding)
-	  (set-terminal-coding-system
-	   (if oem-o-cs-p oem-code-page-output-coding oem-code-page-coding))
-          ;; Since we changed the terminal encoding, we need to repeat
-          ;; the test for Unicode quotes being displayable.
-          (startup--setup-quote-display)))
-  (let* ((colors w32-tty-standard-colors)
-         (color (car colors)))
-    (tty-color-clear)
-    (while colors
-      (tty-color-define (car color) (cadr color) (cddr color))
-      (setq colors (cdr colors)
-            color (car colors))))
-  (clear-face-cache)
-  ;; Figure out what are the colors of the console window, and set up
-  ;; the background-mode correspondingly.
-  (let* ((screen-color (get-screen-color))
-	 (bg (cadr screen-color))
-	 (descr (tty-color-by-index bg))
-	 r g b bg-mode)
-    (setq r (nth 2 descr)
-	  g (nth 3 descr)
-	  b (nth 4 descr))
-    (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
-	(setq bg-mode 'dark)
-      (setq bg-mode 'light))
-    (set-terminal-parameter nil 'background-mode bg-mode))
-  (tty-set-up-initial-frame-faces)
+         (intern (format "cp%d" (w32-get-console-codepage))))
+        (oem-code-page-output-coding
+         (intern (format "cp%d" (w32-get-console-output-codepage))))
+        oem-cs-p oem-o-cs-p)
+    (setq oem-cs-p (coding-system-p oem-code-page-coding))
+    (setq oem-o-cs-p (coding-system-p oem-code-page-output-coding))
+    (when oem-cs-p
+      (set-keyboard-coding-system oem-code-page-coding)
+      (set-terminal-coding-system
+       (if oem-o-cs-p oem-code-page-output-coding oem-code-page-coding))
+      ;; Since we changed the terminal encoding, we need to repeat
+      ;; the test for Unicode quotes being displayable.
+      (startup--setup-quote-display)))
+  (w32con-set-up-initial-frame-faces)
   (run-hooks 'terminal-init-w32-hook))
+
+(defun w32con-set-up-initial-frame-faces ()
+  "Set up initial face color scheme dynamically based on the number of
+display colors and the value of `w32-use-virtual-terminal-sequences'."
+  (tty-color-clear)
+  (let ((ncolors (display-color-cells)))
+    (if w32-use-virtual-terminal-sequences
+        (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
+              ((= ncolors 265       (w32con-define-256-colors)))
+              (t                    (w32con-define-base-colors)))
+      (w32con-define-base-colors))
+    (clear-face-cache)
+    ;; Figure out what are the colors of the console window, and set up
+    ;; the background-mode correspondingly.
+    (let* ((screen-color (get-screen-color))
+           (base-index (cadr screen-color))
+           (bg-pixel (w32con-get-pixel base-index))
+           (bg (if (= ncolors 16777216) bg-pixel base-index))
+           (descr (tty-color-by-index bg))
+           r g b bg-mode)
+      (setq r (nth 2 descr)
+            g (nth 3 descr)
+            b (nth 4 descr))
+      (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
+          (setq bg-mode 'dark)
+        (setq bg-mode 'light))
+      (set-terminal-parameter nil 'background-mode bg-mode)))
+  (tty-set-up-initial-frame-faces))
 
 (provide 'term/w32console)
 
