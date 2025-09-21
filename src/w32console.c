@@ -149,9 +149,12 @@ ctrl_c_handler (unsigned long type)
 	  && (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT));
 }
 
+#define SEQMAX 256 /* Arbitrary upper limit on VT sequence size */
+
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
-    if (fmt)								\
+    eassert (sz <= SEQMAX);						\
+    if (fmt && sz <= SEQMAX)						\
       *i += snprintf (buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
@@ -160,9 +163,11 @@ ctrl_c_handler (unsigned long type)
    || p == FACE_TTY_DEFAULT_FG_COLOR					\
    || p == FACE_TTY_DEFAULT_BG_COLOR)
 
-#define SEQMAX 256 /* Arbitrary upper limit on VT sequence size */
-
-/* For debugging */
+/* For debugging:
+ Insert a call in unexpected condition branches, e.g. in w32con_write_vt_seq.
+ Emacs will exit and a representation of the sequence will print to console,
+ with escape chars replaced by '#' and '%' replaced by '_'.
+*/
 static void
 vt_seq_error (char *seq)
 {
@@ -184,7 +189,8 @@ vt_seq_error (char *seq)
   exit (1);
 }
 
-/* Writes (dynamic) virtual terminal ASCII sequences to screen */
+/* Writes (dynamic) virtual terminal ASCII sequences to screen
+   Note: use of WriteConsoleA is specific to ANSI encoding (expects char *). */
 static int
 w32con_write_vt_seq (char *seq)
 {
