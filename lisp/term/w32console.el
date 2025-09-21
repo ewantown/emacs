@@ -24,7 +24,7 @@
 
 ;;; Code:
 
-;; W32 uses different color indexes than standard
+;; W32 uses different color indexes than standard:
 (defvar w32-tty-standard-colors
   '(("black"          0     0     0     0)
     ("blue"           1     0     0 52480) ; MediumBlue

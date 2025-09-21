@@ -2270,8 +2270,7 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 #ifdef TERMINFO
 	tty->TS_set_foreground = "\x1b[3%p1%dm";
 	tty->TS_set_background = "\x1b[4%p1%dm";
-#endif
-#ifdef WINDOWSNT
+#elif WINDOWSNT
 	tty->TS_orig_pair = "\x1b[39m\x1b[49m";
 	tty->TS_set_foreground = "\x1b[%lum";
 	tty->TS_set_background = "\x1b[%lum";

@@ -1207,13 +1207,13 @@ differs from the implementation for other terminal emulators,
 because historically, Windows required use of an idiosyncractic API.
 That API limited Windows Console display of Emacs to 16 basic colors.
 With the introduction of Windows Terminal, Microsoft implemented
-support for ASCII control sequences, modelled on the VT100 and Xterm,
+support for ANSI control sequences, modelled on the VT100 and Xterm,
 as well as 24-bit RBG color display.
 
   The variable @code{w32-use-virtual-terminal-sequences} determines
-whether this newer mechanism is used for display, or the older one. 
-It is automatically set based on your terminal's capabilities on 
-startup. If it is non-nil, Emacs will use ASCII escape sequences for 
+whether this newer mechanism is used for display, or the older one.
+It is automatically set based on your terminal's capabilities on
+startup. If it is non-nil, Emacs will use ANSI escape sequences for
 cursor and color display. By default, 24-bit RGB color will be used,
 but other (8, 16, 256) color spaces may be used, by passing the
 @code{--color} command line argument, or setting the value of the
