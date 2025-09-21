@@ -23,7 +23,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
    c. ~ 2025:
    * 24bit RGB support in Windows (10+) Terminal
-   * Microsoft moving away from idiosyncratic API, toward ASCII controls
+   * Microsoft moving away from idiosyncratic API, toward ANSI control sequences
 
    https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
 
@@ -189,7 +189,7 @@ vt_seq_error (char *seq)
   exit (1);
 }
 
-/* Writes (dynamic) virtual terminal ASCII sequences to screen
+/* Writes (dynamic) virtual terminal ANSI sequences to screen
    Note: use of WriteConsoleA is specific to ANSI encoding (expects char *). */
 static int
 w32con_write_vt_seq (char *seq)
