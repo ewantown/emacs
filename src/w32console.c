@@ -261,57 +261,54 @@ static int saved_face_id = -1;
 void
 w32con_draw_cursor (struct frame *f)
 {
-  if (!w32_use_virtual_cursor)
+  int x = cursor_coords.X, y = cursor_coords.Y;
+  struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
+  struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
+  int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
+  if (glyph_face_id != CURSOR_FACE_ID)
     {
-      int x = cursor_coords.X, y = cursor_coords.Y;
-      struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
-      struct glyph_row *nrow = MATRIX_ROW (f->desired_matrix, y);
-      int glyph_face_id = nrow->glyphs[TEXT_AREA][x].face_id;
-      if (glyph_face_id != CURSOR_FACE_ID)
+      struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
+      struct face *cursor_face = FACE_FROM_ID (f, CURSOR_FACE_ID);
+
+      /* clean up from last run if faces conflicted */
+      if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
 	{
-	  struct face *glyph_face = FACE_FROM_ID (f, glyph_face_id);
-	  struct face *cursor_face = FACE_FROM_ID (f, CURSOR_FACE_ID);
-
-	  /* clean up from last run if faces conflicted */
-	  if (saved_cursor_bg > -9 && saved_cursor_fg > -9)
-	    {
-	      cursor_face->background = saved_cursor_bg;
-	      cursor_face->foreground = saved_cursor_fg;
-	      saved_cursor_bg = -9;
-	      saved_cursor_fg = -9;
-	    }
-	  /* draw cursor (i.e. manipulate faces) */
-	  if (cursor_face->background == glyph_face->background)
-	    {
-	      saved_cursor_bg = cursor_face->background;
-	      saved_cursor_fg = cursor_face->foreground;
-	      cursor_face->background = glyph_face->foreground;
-	      cursor_face->foreground = glyph_face->background;
-	    }
-	  if (!(FRAME_TTY (f)->cursor_hidden))
-	    {
-	      nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
-
-	      /* force a rewrite of new cursor row (including spaces) */
-	      FRAME_TTY (f)->must_write_spaces = 1;
-	      orow->enabled_p = 0;
-	      nrow->enabled_p = 1;
-	    }
-	  /* force a rewrite of old cursor row (if needed) */
-	  int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
-	  if (saved_face_id > -1 && (px != x || py != y))
-	    {
-	      struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
-	      struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
-	      if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
-		pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
-	      porow->enabled_p = 0;
-	      pnrow->enabled_p = 1;
-	    }
-	  saved_face_id = glyph_face_id;
+	  cursor_face->background = saved_cursor_bg;
+	  cursor_face->foreground = saved_cursor_fg;
+	  saved_cursor_bg = -9;
+	  saved_cursor_fg = -9;
+	}
+      /* draw cursor (i.e. manipulate faces) */
+      if (cursor_face->background == glyph_face->background)
+	{
+	  saved_cursor_bg = cursor_face->background;
+	  saved_cursor_fg = cursor_face->foreground;
+	  cursor_face->background = glyph_face->foreground;
+	  cursor_face->foreground = glyph_face->background;
+	}
+      if (!(FRAME_TTY (f)->cursor_hidden))
+	{
+	  nrow->glyphs[TEXT_AREA][x].face_id = CURSOR_FACE_ID;
+	  
+	  /* force a rewrite of new cursor row (including spaces) */
+	  FRAME_TTY (f)->must_write_spaces = 1;
+	  orow->enabled_p = 0;
+	  nrow->enabled_p = 1;
+	}
+      /* force a rewrite of old cursor row (if needed) */
+      int px = prev_cursor_pos.X, py = prev_cursor_pos.Y;
+      if (saved_face_id > -1 && (px != x || py != y))
+	{
+	  struct glyph_row *porow = MATRIX_ROW (f->current_matrix, py);
+	  struct glyph_row *pnrow = MATRIX_ROW (f->desired_matrix, py);
+	  if (pnrow->glyphs[TEXT_AREA][px].face_id == CURSOR_FACE_ID)
+	    pnrow->glyphs[TEXT_AREA][px].face_id = saved_face_id;
+	  porow->enabled_p = 0;
+	  pnrow->enabled_p = 1;
+	}
+      saved_face_id = glyph_face_id;
 	  prev_cursor_pos.X = x;
 	  prev_cursor_pos.Y = y;
-	}
     }
 }
 
@@ -826,12 +823,12 @@ w32con_setup_virtual_cursor (void)
 {
   if (w32_use_virtual_cursor) /* ensure system cursor hidden */
     {
-      int prev_state = w32_use_virtual_cursor;
+      int state = w32_use_virtual_cursor;
       int prev_cursor_hidden = current_tty->cursor_hidden;      
       w32_use_virtual_cursor = 0;
       w32con_hide_cursor ();
       current_tty->cursor_hidden = prev_cursor_hidden;
-      w32_use_virtual_cursor = prev_state;
+      w32_use_virtual_cursor = state;
     }
   else /* ensure system cursor synced */
     {
