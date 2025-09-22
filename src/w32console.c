@@ -1332,7 +1332,8 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
   /* Set up the keyboard hook.  */
   setup_w32_kbdhook (hwnd);
 
-  current_tty = &term->display_info.tty;
+  /* Set the current TTY */
+  current_tty = term->display_info.tty;
 }
 
 
@@ -1382,7 +1383,6 @@ DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
 
 DEFUN ("use-virtual-terminal", Fuse_virtual_terminal, Suse_virtual_terminal, 0, 1, 0,
        doc: /* Inspect or set virtual terminal sequence processing.
-
 If argument is zero, disable virtual terminal sequences.
 If argument is a non-zero number, enable virtual terminal sequences.
 If argument is nil (or called without argument), inspect the current state.
@@ -1399,7 +1399,6 @@ Returns t (nil) if virtual terminal sequences are enabled (disabled). */)
 
 DEFUN ("use-virtual-cursor", Fuse_virtual_cursor, Suse_virtual_cursor, 0, 1, 0,
        doc: /* Inspect or set Emacs-drawn virtual text cursor (caret).
-	       
 If argument is zero, disable virtual caret.
 If argument is a non-zero number, enable virtual caret.
 If argument is nil (or called without argument), inspect the current state.
