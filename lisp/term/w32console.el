@@ -140,6 +140,7 @@
   (w32con-set-up-initial-frame-faces)
   (run-hooks 'terminal-init-w32-hook))
 
+;; Called from tty-set-up-initial-frame-faces in faces.el
 (defun w32con-set-up-initial-frame-faces ()
   "Set up initial face color scheme dynamically based on the number of
 display colors and the value of `w32-use-virtual-terminal-sequences'."
@@ -165,8 +166,7 @@ display colors and the value of `w32-use-virtual-terminal-sequences'."
       (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
           (setq bg-mode 'dark)
         (setq bg-mode 'light))
-      (set-terminal-parameter nil 'background-mode bg-mode)))
-  (tty-set-up-initial-frame-faces))
+      (set-terminal-parameter nil 'background-mode bg-mode))))
 
 (provide 'term/w32console)
 

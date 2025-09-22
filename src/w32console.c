@@ -852,17 +852,14 @@ w32con_setup_virtual_terminal (void)
     out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
   else
     out_mode &= ~ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-  
-  int out_mode_set = SetConsoleMode (cur_screen, out_mode);
-  if (w32_use_virtual_terminal)
-    w32_use_virtual_terminal = out_mode_set;
 
-  if (!w32_use_virtual_terminal
-      && current_tty->TN_max_colors > 16)
-    {
-      tty_setup_colors (current_tty, 16);
-      safe_calln (Qw32con_set_up_initial_frame_faces);
-    }  
+  int out_mode_set = SetConsoleMode (cur_screen, out_mode);
+  w32_use_virtual_terminal = w32_use_virtual_terminal && out_mode_set;
+
+  if (!w32_use_virtual_terminal && current_tty->TN_max_colors > 16)
+    tty_setup_colors (current_tty, 16);
+
+  safe_calln (Qw32con_set_up_initial_frame_faces);
 }
 
 static void

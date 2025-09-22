@@ -2330,11 +2330,7 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
       tty->previous_color_mode = mode;
       tty_setup_colors (tty , mode);
       /*  This recomputes all the faces given the new color definitions. */
-#ifdef WINDOWSNT
-      safe_calln (Qw32con_set_up_initial_frame_faces);
-#else
       safe_calln (Qtty_set_up_initial_frame_faces);
-#endif
     }
 }
 

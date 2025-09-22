@@ -109,7 +109,8 @@ extern void w32con_show_cursor (void);
 extern void w32con_save_cursor (void);
 extern void w32con_restore_cursor (void);
 extern void w32con_draw_cursor (struct frame *);
-extern int  w32_use_virtual_cursor;
+extern int w32_use_virtual_cursor;
+extern int w32_use_virtual_terminal;
 #endif
 
 #if 0 /* Please leave this in as a debugging aid.  */
@@ -5776,15 +5777,12 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
   int last_row = f->desired_matrix->nrows - 1;
   if (MATRIX_ROW_ENABLED_P (f->desired_matrix, last_row))
     {
-      /* This special case handles system cursor flashing in/to the echo
-      area when running with color backgrounds in Windows Terminal. We
-      have one cursor, it moves into whatever row we write, and Windows
-      draws it there. We don't want the cursor jumping at every echo.
-      So we hide it when it jumps, and it just "flickers" in-place. */
-
+/* This special case handles system cursor flashing in/to the echo
+   area when running with color backgrounds in Windows Terminal. */
 #ifdef WINDOWSNT
       int prev_cursor_hidden = (FRAME_TTY (f))->cursor_hidden;
-      if (!w32_use_virtual_cursor && !cursor_in_echo_area)
+      if (w32_use_virtual_terminal && !w32_use_virtual_cursor
+	  && !cursor_in_echo_area)
 	{
 	  w32con_save_cursor ();
 	  w32con_hide_cursor ();
@@ -5794,7 +5792,8 @@ write_matrix (struct frame *f, bool inhibit_id_p, bool updating_menu_p)
       write_row (f, last_row, updating_menu_p);
 
 #ifdef WINDOWSNT
-      if (!w32_use_virtual_cursor && !cursor_in_echo_area)
+      if (w32_use_virtual_terminal && !w32_use_virtual_cursor
+	  && !cursor_in_echo_area)
 	{
 	  w32con_restore_cursor ();
 	  if (!prev_cursor_hidden) w32con_show_cursor ();
