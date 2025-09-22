@@ -2264,12 +2264,12 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	tty_default_color_capabilities (tty, 0);
 	break;
       case 8: /* 8 standard ANSI colors */
-	tty->TS_orig_pair = "\x1b[0m";
-	tty->TS_set_foreground = "\x1b[3%dm";
-	tty->TS_set_background = "\x1b[4%dm";
+	tty->TS_orig_pair = "\033[0m";
+	tty->TS_set_foreground = "\033[3%dm";
+	tty->TS_set_background = "\033[4%dm";
 #ifdef TERMINFO
-	tty->TS_set_foreground = "\x1b[3%p1%dm";
-	tty->TS_set_background = "\x1b[4%p1%dm";
+	tty->TS_set_foreground = "\033[3%p1%dm";
+	tty->TS_set_background = "\033[4%p1%dm";
 #elif WINDOWSNT
 	tty->TS_orig_pair = "\x1b[39m\x1b[49m";
 	tty->TS_set_foreground = "\x1b[%lum";
@@ -4612,8 +4612,8 @@ use the Bourne shell command 'TERM=...; export TERM' (C-shell:\n\
 		 || ((bg = getenv ("COLORTERM")) != NULL
 		     && strcasecmp (bg, "truecolor") == 0))
 	  {
-	    tty->TS_set_foreground = "\x1b[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
-	    tty->TS_set_background = "\x1b[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
+	    tty->TS_set_foreground = "\033[%?%p1%{8}%<%t3%p1%d%e38;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
+	    tty->TS_set_background = "\033[%?%p1%{8}%<%t4%p1%d%e48;2;%p1%{65536}%/%d;%p1%{256}%/%{255}%&%d;%p1%{255}%&%d%;m";
 	    tty->TN_max_colors = 16777216;
 	  }
       }

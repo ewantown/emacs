@@ -123,7 +123,6 @@ static WORD     char_attr_normal;
 static WORD     bg_normal;
 static WORD     fg_normal;
 static DWORD    prev_console_mode;
-static int      using_system_caret;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
 #ifndef USE_SEPARATE_SCREEN
@@ -133,6 +132,9 @@ static CONSOLE_CURSOR_INFO prev_console_cursor;
 extern HANDLE  keyboard_handle;
 HANDLE  keyboard_handle;
 int w32_console_unicode_input;
+
+int w32_use_virtual_cursor = 0;
+int w32_use_virtual_terminal = 1;
 
 extern struct tty_display_info *current_tty;
 struct tty_display_info *current_tty = NULL;
@@ -152,8 +154,8 @@ ctrl_c_handler (unsigned long type)
 
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
-    eassert (sz <= SEQMAX);						\
-    if (fmt && sz <= SEQMAX)						\
+    eassert (i < sz && sz <= SEQMAX);					\
+    if (fmt && i < sz && sz <= SEQMAX)					\
       *i += snprintf (buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
@@ -189,15 +191,14 @@ vt_seq_error (char *seq)
   exit (1);
 }
 
-/* Writes (dynamic) virtual terminal ANSI sequences to screen
-   Note: use of WriteConsoleA is specific to ANSI encoding (expects char *). */
+/* Writes (dynamic) virtual terminal ANSI sequences to screen */
 static int
 w32con_write_vt_seq (char *seq)
 {
   char buf[SEQMAX];
   DWORD n = 0, k = 0;
   SSPRINTF (buf, &n, SEQMAX, seq, NULL);
-  if (n) WriteConsoleA (cur_screen, (LPCSTR) buf, n, &k, NULL);
+  if (n) WriteConsole (cur_screen, (LPCSTR) buf, n, &k, NULL);
   return k;
 }
 
@@ -211,7 +212,7 @@ w32con_move_cursor (struct frame *f, int row, int col)
 {
   cursor_coords.X = col;
   cursor_coords.Y = row;
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       char seq[32];
       sprintf(seq, "\x1b[%d;%dH", row + 1, col + 1); /* 1-indexed */
@@ -228,13 +229,13 @@ w32con_move_cursor (struct frame *f, int row, int col)
 void
 w32con_hide_cursor (void)
 {
-  if (using_system_caret)
+  if (!w32_use_virtual_cursor)
     {
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = FALSE;
 
       if (!current_tty->cursor_hidden)
-	if (w32_use_virtual_terminal_sequences)
+	if (w32_use_virtual_terminal)
 	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_invisible);
 	else
 	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -245,13 +246,13 @@ w32con_hide_cursor (void)
 void
 w32con_show_cursor (void)
 {
-  if (using_system_caret)
+  if (!w32_use_virtual_cursor)
     {
       GetConsoleCursorInfo (cur_screen, &console_cursor_info);
       console_cursor_info.bVisible = TRUE;
 
       if (current_tty->cursor_hidden)
-	if (w32_use_virtual_terminal_sequences)
+	if (w32_use_virtual_terminal)
 	  w32con_write_vt_seq ((char *) current_tty->TS_cursor_visible);
 	else
 	  SetConsoleCursorInfo (cur_screen, &console_cursor_info);
@@ -263,7 +264,7 @@ void
 w32con_save_cursor (void)
 {
   saved_coords = cursor_coords;
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     w32con_write_vt_seq ((char *) "\x1b[7");
 }
 
@@ -271,7 +272,7 @@ void
 w32con_restore_cursor (void)
 {
   cursor_coords = saved_coords;
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     w32con_write_vt_seq ((char *) "\x1b[8");
   else
     SetConsoleCursorPosition (cur_screen, cursor_coords);
@@ -285,7 +286,7 @@ static int saved_face_id = -1;
 void
 w32con_draw_cursor (struct frame *f)
 {
-  if (!using_system_caret)
+  if (!w32_use_virtual_cursor)
     {
       int x = cursor_coords.X, y = cursor_coords.Y;
       struct glyph_row *orow = MATRIX_ROW (f->current_matrix, y);
@@ -347,7 +348,7 @@ w32con_draw_cursor (struct frame *f)
 static void
 w32con_clear_to_end (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[1J");
@@ -365,7 +366,7 @@ w32con_clear_to_end (struct frame *f)
 static void
 w32con_clear_frame (struct frame *f)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[2J\x1b[3J");
@@ -400,7 +401,7 @@ static BOOL  ceol_initialized = FALSE;
 static void
 w32con_clear_end_of_line (struct frame *f, int end)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       turn_on_face (f, space_glyph.face_id);
       w32con_write_vt_seq ("\x1b[0K");
@@ -437,7 +438,7 @@ w32con_clear_end_of_line (struct frame *f, int end)
 static void
 w32con_ins_del_lines (struct frame *f, int vpos, int n)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       char seq[32];
       char *fmt = n < 0 ? "\x1b[%dL" : "\x1b[%dM";
@@ -523,7 +524,7 @@ w32con_ins_del_lines (struct frame *f, int vpos, int n)
 static void
 scroll_line (struct frame *f, int dist, int direction)
 {
-  if (w32_use_virtual_terminal_sequences)
+  if (w32_use_virtual_terminal)
     {
       char seq[32];
       char *fmt = direction == LEFT ? "\x1b[%d@" : "\x1b[%dP";
@@ -631,7 +632,7 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
       conversion_buffer = (LPCSTR) encode_terminal_code (string, n, coding);
       if (coding->produced > 0)
 	{
-	  if (w32_use_virtual_terminal_sequences)
+	  if (w32_use_virtual_terminal)
 	    {
 	      turn_on_face (f, face_id);
 	      WriteConsole (cur_screen, conversion_buffer,
@@ -690,7 +691,7 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
       start_coords.X = x;
       start_coords.Y = y;
 
-      if (w32_use_virtual_terminal_sequences)
+      if (w32_use_virtual_terminal)
 	{
 	  int prev_cursor_hidden = current_tty->cursor_hidden;
 	  w32con_hide_cursor ();
@@ -846,15 +847,59 @@ w32con_reset_terminal_modes (struct terminal *t)
 }
 
 static void
+w32con_setup_virtual_cursor (void)
+{
+  if (w32_use_virtual_cursor) /* ensure system cursor hidden */
+    {
+      int prev_state = w32_use_virtual_cursor;
+      int prev_cursor_hidden = current_tty->cursor_hidden;      
+      w32_use_virtual_cursor = 0;
+      w32con_hide_cursor ();
+      current_tty->cursor_hidden = prev_cursor_hidden;
+      w32_use_virtual_cursor = prev_state;
+    }
+  else /* ensure system cursor synced */
+    {
+      current_tty->cursor_hidden = !current_tty->cursor_hidden;
+      if (current_tty->cursor_hidden)
+	w32con_show_cursor ();
+      else
+	w32con_hide_cursor ();
+    }
+}
+
+static void
+w32con_setup_virtual_terminal (void)
+{
+  DWORD out_mode;
+  GetConsoleMode (cur_screen, &out_mode);
+  out_mode |= ENABLE_PROCESSED_OUTPUT;
+  out_mode |= DISABLE_NEWLINE_AUTO_RETURN;
+  
+  if (w32_use_virtual_terminal)
+    out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  else
+    out_mode &= ~ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  
+  int out_mode_set = SetConsoleMode (cur_screen, out_mode);
+  if (w32_use_virtual_terminal)
+    w32_use_virtual_terminal = out_mode_set;
+
+  if (!w32_use_virtual_terminal
+      && current_tty->TN_max_colors > 16)
+    {
+      tty_setup_colors (current_tty, 16);
+      safe_calln (Qw32con_set_up_initial_frame_faces);
+    }  
+}
+
+static void
 w32con_set_terminal_modes (struct terminal *t)
 {
   CONSOLE_CURSOR_INFO cci;
-
-  using_system_caret = w32_use_visible_system_caret;
-
   /* make cursor big and visible (100 on Windows 95 makes it disappear)  */
   cci.dwSize = 99;
-  cci.bVisible = using_system_caret ? TRUE : FALSE;
+  cci.bVisible = w32_use_virtual_cursor ? FALSE : TRUE;
   (void) SetConsoleCursorInfo (cur_screen, &cci);
 
   SetConsoleActiveScreenBuffer (cur_screen);
@@ -872,17 +917,11 @@ w32con_set_terminal_modes (struct terminal *t)
      8 bit character input, standard quit char.  */
   Fset_input_mode (Qnil, Qnil, make_fixnum (2), Qnil);
 
-  DWORD out_mode;
-  GetConsoleMode (cur_screen, &out_mode);
-  out_mode |= ENABLE_PROCESSED_OUTPUT;
-  out_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-  out_mode |= DISABLE_NEWLINE_AUTO_RETURN;
-  w32_use_virtual_terminal_sequences = SetConsoleMode (cur_screen, out_mode);
-  if (w32_use_virtual_terminal_sequences)
-    {
-      int cursor_off_p = XWINDOW (selected_window)->cursor_off_p;
-      t->display_info.tty->cursor_hidden = cursor_off_p;
-    }
+  w32con_setup_virtual_terminal ();
+
+  int cursor_off_p = XWINDOW (selected_window)->cursor_off_p;
+  t->display_info.tty->cursor_hidden = cursor_off_p;
+  w32con_setup_virtual_cursor ();
 }
 
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
@@ -896,33 +935,6 @@ w32con_set_terminal_modes (struct terminal *t)
 static void
 w32con_update_begin (struct frame * f)
 {
-  current_tty = FRAME_TTY (f);
-
-  if (!w32_use_virtual_terminal_sequences
-      && current_tty->TN_max_colors > 16)
-    {
-      tty_setup_colors (current_tty, 16);
-      safe_calln (Qw32con_set_up_initial_frame_faces);
-    }
-  if (using_system_caret != w32_use_visible_system_caret)
-    {
-      int prev_cursor_hidden = current_tty->cursor_hidden;
-      if (using_system_caret)
-	{
-	  w32con_hide_cursor ();
-	  current_tty->cursor_hidden = prev_cursor_hidden;
-	}
-      using_system_caret = w32_use_visible_system_caret;
-
-      if (using_system_caret) /* need to sync */
-	{
-	  current_tty->cursor_hidden = !current_tty->cursor_hidden;
-	  if (current_tty->cursor_hidden)
-	    w32con_show_cursor ();
-	  else
-	    w32con_hide_cursor ();
-	}
-    }
 }
 
 static void
@@ -1344,6 +1356,8 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
 
   /* Set up the keyboard hook.  */
   setup_w32_kbdhook (hwnd);
+
+  current_tty = &term->display_info.tty;
 }
 
 
@@ -1391,6 +1405,40 @@ DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
   return Qt;
 }
 
+DEFUN ("use-virtual-terminal", Fuse_virtual_terminal, Suse_virtual_terminal, 0, 1, 0,
+       doc: /* Inspect or set virtual terminal sequence processing.
+
+If argument is zero, disable virtual terminal sequences.
+If argument is a non-zero number, enable virtual terminal sequences.
+If argument is nil (or called without argument), inspect the current state.
+Returns t (nil) if virtual terminal sequences are enabled (disabled). */)
+  (Lisp_Object arg)
+{
+  if (!NILP (arg))
+    {
+      w32_use_virtual_terminal = XFIXNAT (arg);
+      w32con_setup_virtual_terminal ();
+    }
+  return w32_use_virtual_terminal ? Qt : Qnil;
+}
+
+DEFUN ("use-virtual-cursor", Fuse_virtual_cursor, Suse_virtual_cursor, 0, 1, 0,
+       doc: /* Inspect or set Emacs-drawn virtual text cursor (caret).
+	       
+If argument is zero, disable virtual caret.
+If argument is a non-zero number, enable virtual caret.
+If argument is nil (or called without argument), inspect the current state.
+Returns t (nil) if virtual caret is enabled (disabled). */)
+  (Lisp_Object arg)
+{
+  if (!NILP (arg))
+    {
+      w32_use_virtual_cursor = XFIXNAT (arg);
+      w32con_setup_virtual_cursor ();
+    }
+  return w32_use_virtual_cursor ? Qt : Qnil;
+}
+
 void
 syms_of_ntterm (void)
 {
@@ -1403,16 +1451,6 @@ may be preferable when working directly at the console with a large
 scroll-back buffer.  */);
   w32_use_full_screen_buffer = 0;
 
-  DEFVAR_BOOL ("w32-use-virtual-terminal-sequences",
-		w32_use_virtual_terminal_sequences,
-		doc: /* If non-nil w32 console uses terminal sequences for some output processing.
-This variable is set automatically based on the capabilities of the terminal.
-It determines the number and indices of colors used for faces in the terminal.
-If the terminal cannot handle VT sequences, the update hook triggers recomputation of faces.
-See `w32con-set-up-initial-frame-faces', which should be called after setting this variable 
-manually in a running session. */);
-  w32_use_virtual_terminal_sequences = 0;
-
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
 
@@ -1422,5 +1460,6 @@ manually in a running session. */);
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
   defsubr (&Sset_cursor_size);
-  
+  defsubr (&Suse_virtual_terminal);
+  defsubr (&Suse_virtual_cursor);
 }

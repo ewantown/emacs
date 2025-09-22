@@ -42,38 +42,37 @@
     ("lightmagenta"  13 65535     0 65535) ; Magenta
     ("yellow"        14 65535 65535     0) ; Yellow
     ("white"         15 65535 65535 65535))
-  "A list of VGA console colors, their indices and 16-bit RGB values.")
-
-;; When using VT sequences for color, use xterm-like indices
-(defvar w32-tty-virtual-terminal-base-colors
-  '(("black"          0     0     0     0)
-    ("red"            1 45568  8704  8704) ; FireBrick
-    ("green"          2  8704 35584  8704) ; ForestGreen
-    ("brown"          3 40960 20992 11520) ; Sienna
-    ("blue"           4     0     0 52480) ; MediumBlue
-    ("magenta"        5 35584     0 35584) ; DarkMagenta
-    ("cyan"           6     0 52736 53504) ; DarkTurquoise
-    ("lightgray"      7 48640 48640 48640) ; Gray
-    ("darkgray"       8 26112 26112 26112) ; Gray40
-    ("lightred"       9 65535     0     0) ; Red
-    ("lightgreen"    10     0 65535     0) ; Green
-    ("yellow"        11 65535 65535     0) ; Yellow
-    ("lightblue"     12     0     0 65535) ; Blue
-    ("lightmagenta"  13 65535     0 65535) ; Magenta
-    ("lightcyan"     14     0 65535 65535) ; Cyan
-    ("white"         15 65535 65535 65535))
-  "A list of VGA console colors, their indices and 16-bit RGB values.")
+  "A list of console colors, their indices and 16-bit RGB values.")
 
 (declare-function x-setup-function-keys "term/common-win" (frame))
 (declare-function get-screen-color "w32console.c" ())
 (declare-function w32-get-console-codepage "w32proc.c" ())
 (declare-function w32-get-console-output-codepage "w32proc.c" ())
+(declare-function use-virtual-terminal "w32console.c")
+(declare-function use-virtual-cursor "w32console.c")
+
+(defun w32-tty-set-base-colors ()
+  "Reorder standard colors based on whether VT sequences are used."
+  (let* ((vga
+          '("black"     "blue"         "green"      "cyan"
+            "red"       "magenta"      "brown"      "lightgray"
+            "darkgray"  "lightblue"    "lightgreen" "lightcyan"
+            "lightred"  "lightmagenta" "yellow"     "white"))
+         (vt
+          '("black"     "red"          "green"      "brown"
+            "blue"      "magenta"      "cyan"       "lightgray"
+            "darkgray"  "lightred"     "lightgreen" "yellow"
+            "lightblue" "lightmagenta" "lightcyan"  "white"))
+         (seq (if (use-virtual-terminal) vt vga)))
+    (setq w32-tty-standard-colors
+          (mapcar
+           (lambda (n) (let ((c (assoc n w32-tty-standard-colors)))
+                    (cons n (cons (seq-position seq n) (cddr c)))))
+           seq))))
 
 (defun w32con-define-base-colors ()
   "Defines base 16-color space for w32 console."
-  (let* ((colors (if w32-use-virtual-terminal-sequences
-                     w32-tty-virtual-terminal-base-colors
-                   w32-tty-standard-colors))
+  (let* ((colors (w32-tty-set-base-colors))
          (nbase (length colors))
          (color (car colors)))
     (progn (while colors
@@ -86,7 +85,7 @@
 ;; So, we need this function to "recover" the terminal's native mapping
 (defun w32con-get-pixel (index)
   "Convert a base-color index into a pixel (index into 24bit map)"
-  (let ((color (nth index w32-tty-virtual-terminal-base-colors)))
+  (let ((color (nth index w32-tty-standard-colors)))
     (or (tty-color-24bit (cddr color)) index)))
 
 (defun w32con-define-256-colors ()
@@ -146,7 +145,7 @@
 display colors and the value of `w32-use-virtual-terminal-sequences'."
   (tty-color-clear)
   (let ((ncolors (display-color-cells)))
-    (if w32-use-virtual-terminal-sequences
+    (if (use-virtual-terminal)
         (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
               ((= ncolors 265       (w32con-define-256-colors)))
               (t                    (w32con-define-base-colors)))
