@@ -152,10 +152,12 @@ ctrl_c_handler (unsigned long type)
 	  && (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT));
 }
 
+#define SEQMAX 256 /* Arbitrary upper limit on VT sequence size */
+
 #define SSPRINTF(buf, i, sz, fmt, ...)					\
   do {									\
-    eassert (i < sz && sz <= SEQMAX);					\
-    if (fmt && i < sz && sz <= SEQMAX)					\
+    eassert (*i < sz && sz <= SEQMAX);					\
+    if (fmt && *i < sz && sz <= SEQMAX)				\
       *i += snprintf (buf + *i, sz - *i, fmt, __VA_ARGS__);		\
   } while (0)
 
@@ -163,33 +165,6 @@ ctrl_c_handler (unsigned long type)
   (p == FACE_TTY_DEFAULT_COLOR						\
    || p == FACE_TTY_DEFAULT_FG_COLOR					\
    || p == FACE_TTY_DEFAULT_BG_COLOR)
-
-#define SEQMAX 256 /* Arbitrary upper limit on VT sequence size */
-
-/* For debugging:
- Insert a call in unexpected condition branches, e.g. in w32con_write_vt_seq.
- Emacs will exit and a representation of the sequence wil print to console,
- with escape chars replaced by '#' and '%' replaced by '_'. */
-static void
-vt_seq_error (char *seq)
-{
-  int i = 0; int j = 0;
-  if (seq)
-    if (seq[0] == '\0') seq = "<empty>";
-    else
-      while (i < SEQMAX)
-	{
-	  if (seq[i] == '\x1b') seq[i] = '#';
-	  if (seq[i] ==    '%') seq[i] = '_';
-	  if (seq[i] ==   '\0') { j++; break; }
-	  i++;
-	}
-  else seq = "<null>";
-  printf ("Failed to write VT sequence: %s\n", j ? seq : "<overflow>");
-  printf ("LastError: 0x%dx\n", GetLastError ());
-  fflush (stdout);
-  exit (1);
-}
 
 /* Writes (dynamic) virtual terminal ANSI sequences to screen */
 static int
