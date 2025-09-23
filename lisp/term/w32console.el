@@ -52,10 +52,10 @@
 (declare-function use-virtual-terminal "w32console.c")
 (declare-function use-virtual-cursor "w32console.c")
 
-(defun w32-tty-base-colors (&optional legacy)
-  "Get 16 basic colors for w32console; permuted if legacy is non-nil."
+(defun w32-tty-base-colors (&optional legacyp)
+  "Get 16 basic colors for w32console; permuted if legacyp is non-nil."
   (let ((seq
-         (if legacy
+         (if legacyp
              '("black"     "blue"         "green"      "cyan"
                "red"       "magenta"      "brown"      "lightgray"
                "darkgray"  "lightblue"    "lightgreen" "lightcyan"
@@ -69,9 +69,9 @@
               (cons n (cons (seq-position seq n) (cddr c)))))
      seq)))
 
-(defun w32con-define-base-colors (&optional legacy)
+(defun w32con-define-base-colors (&optional legacyp)
   "Defines base 16-color space for w32 console."
-  (let* ((colors (w32-tty-base-colors legacy))
+  (let* ((colors (w32-tty-base-colors legacyp))
          (nbase (length colors))
          (color (car colors)))
     (progn (while colors
@@ -147,9 +147,9 @@
 display colors and whether virtual terminal sequences are in-use."
   (tty-color-clear)
   (let ((ncolors (display-color-cells))
-        (legacy (not (use-virtual-terminal))))
-    (setq w32-tty-standard-colors (w32-tty-base-colors legacy))
-    (if legacy
+        (legacyp (not (use-virtual-terminal))))
+    (setq w32-tty-standard-colors (w32-tty-base-colors legacyp))
+    (if legacyp
         (w32con-define-base-colors t)
       (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
             ((= ncolors 265)      (w32con-define-256-colors))
@@ -157,7 +157,7 @@ display colors and whether virtual terminal sequences are in-use."
     (clear-face-cache)
     ;; Figure out what are the colors of the console window, and set up
     ;; the background-mode and default colors correspondingly.
-    (let* ((screen-color (get-screen-color legacy))
+    (let* ((screen-color (get-screen-color))
            (fg (car  screen-color))
            (bg (cadr screen-color))
            (bootstrap (and (not legacy) (= ncolors 16777216)
@@ -168,7 +168,7 @@ display colors and whether virtual terminal sequences are in-use."
            (bg-dark (< (+ (nth 2 bg-col) (nth 3 bg-col) (nth 4 bg-col))
                        (* .6 (+ 65535 65535 65535))))
            (bg-mode (if bg-dark 'dark 'light)))
-      (if (not (set-screen-color fg bg legacy))
+      (if (not (set-screen-color fg bg))
           (warn (concat "'w32con-set-up-initial-frame-faces'"
                         " failed to set TTY colors: (%d %d)")
                 fg bg))
