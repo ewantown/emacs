@@ -1314,16 +1314,21 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
                             Lisp Interface
 ***********************************************************************/
 
-DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
+DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 3, 0,
        doc: /* Set screen foreground and background colors.
 
-Arguments should be indices for colors returned by `tty-color-alist'.  */)
-  (Lisp_Object foreground, Lisp_Object background)
+Arguments should be indices for colors in the list returned by `tty-color-alist'.
+If `legacy' is omitted or nil, settings affect virtual terminal processing only.
+If `legacy' is non-nil, arguments should be between 0 and 15, and settings will
+be effective only when virtual terminal processing is disabled.
+
+See w32console.el and the documentation for `use-virtual-terminal'.  */)
+  (Lisp_Object foreground, Lisp_Object background, Lisp_Object legacy)
 {
   int fg = XFIXNAT (foreground);
   int bg = XFIXNAT (background);
 
-  if (w32_use_virtual_terminal)
+  if (NILP (legacy))
     {
       if (fg >= current_tty->TN_max_colors || bg >= current_tty->TN_max_colors)
 	return Qnil;
@@ -1333,24 +1338,27 @@ Arguments should be indices for colors returned by `tty-color-alist'.  */)
     }
   else
     {
-      if (fg > 15 || bg > 15)
-	return Qnil;
-
+      if (fg > 15 || bg > 15) return Qnil;
       char_attr_normal = fg + (bg << 4);
     }
-
   Frecenter (Qnil, Qt);
   return Qt;
 }
 
-DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 0, 0,
+DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 1, 0,
        doc: /* Get color indices of the current screen foreground and background.
 
 The colors are returned as a list of 2 indices (FOREGROUND BACKGROUND) for
-colors in the list returned by `tty-color-alist`.  */)
-  (void)
+colors in the list returned by `tty-color-alist`.
+
+If `legacy' is omitted or nil, returns settings effective when virtual terminal
+processing is enabled.  If `legacy' is non-nil, returns settings effective when
+virtual terminal processing is disabled.
+
+See w32console.el and the documentation for `use-virtual-terminal'.  */)
+  (Lisp_Object legacy)
 {
-  if (w32_use_virtual_terminal)
+  if (NILP (legacy))
     {
       return Fcons (make_fixnum (fg_normal),
 		    Fcons (make_fixnum (bg_normal), Qnil));
