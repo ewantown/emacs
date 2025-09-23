@@ -1096,8 +1096,7 @@ turn_on_face (struct frame *f, int face_id)
     }
   else if (tty->TN_max_colors == 16777216)
     {
-      /* fg and bg are pixel values set by w32con-set-up-initial-frame-faces.
-	 We need to decompose these to rgb triples.  */
+      /* fg and bg are pixel values -- decompose to rgb triples.  */
       unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
       unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
       SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
