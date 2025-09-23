@@ -857,7 +857,7 @@ w32con_setup_virtual_terminal (void)
   if (!w32_use_virtual_terminal && current_tty->TN_max_colors > 16)
     tty_setup_colors (current_tty, 16);
 
-  safe_calln (Qw32con_set_up_initial_frame_faces);
+  safe_calln (Qtty_set_up_initial_frame_faces);
 }
 
 static void
@@ -1418,9 +1418,6 @@ A value of nil means use the current console window dimensions; this
 may be preferable when working directly at the console with a large
 scroll-back buffer.  */);
   w32_use_full_screen_buffer = 0;
-
-  DEFSYM (Qw32con_set_up_initial_frame_faces,
-	  "w32con-set-up-initial-frame-faces");
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
