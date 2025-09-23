@@ -1078,14 +1078,14 @@ turn_on_face (struct frame *f, int face_id)
       /* indices into Microsoft-defined colors (see link at top) */
       unsigned long fgi = 0, bgi = 0;
 
-      fgi = (fg >= 0  && fg < 8)   ? fg + 30
-	:   (fg >= 8  && fg < 16)  ? fg - 8 + 90
+      fgi = (fg >= 0  && fg < 8)  ? fg + 30
+	:   (fg >= 8  && fg < 16) ? fg - 8 + 90
 	: 0;
       if (fgi)
 	SSPRINTF (seq, &n, sz, set_fg, fgi);
 
-      bgi = (bg >= 0  && bg < 8)   ? bg + 40
-	:   (bg >= 8  && bg < 16)  ? bg - 8 + 100
+      bgi = (bg >= 0  && bg < 8)  ? bg + 40
+	:   (bg >= 8  && bg < 16) ? bg - 8 + 100
 	: 0;
       if (bgi)
 	SSPRINTF (seq, &n, sz, set_bg, bgi);
