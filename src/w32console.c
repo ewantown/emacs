@@ -112,16 +112,14 @@ void w32con_show_cursor (void);
 void w32con_hide_cursor (void);
 void w32con_draw_cursor (struct frame *f);
 
-static unsigned long get_pixel (unsigned long index);
-
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
 static HANDLE   prev_screen, cur_screen;
 static WORD     char_attr_normal;
-static WORD     bg_normal;
-static WORD     fg_normal;
+static int      bg_normal;
+static int      fg_normal;
 static DWORD    prev_console_mode;
 
 static CONSOLE_CURSOR_INFO console_cursor_info;
@@ -1051,7 +1049,7 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
 
-  /* if either out of range, set both to values retrieved from terminal */
+  /* if either out of range, set both to the default values */
   if (DEFAULTP (fg)) fg = fg_normal;
   if (DEFAULTP (bg)) bg = bg_normal;
 
@@ -1098,11 +1096,8 @@ turn_on_face (struct frame *f, int face_id)
     }
   else if (tty->TN_max_colors == 16777216)
     {
-      /* need to convert defaulted values to pixel indices */
-      if (fg == fg_normal) fg = get_pixel(fg);
-      if (bg == bg_normal) bg = get_pixel(bg);
-
-      /* fg and bg are pixel values - decompose to rgb triples */
+      /* fg and bg are pixel values set by w32con-set-up-initial-frame-faces.
+	 We need to decompose these to rgb triples.  */
       unsigned long rf = fg/65536, gf = (fg/256)&255, bf = fg&255;
       unsigned long rb = bg/65536, gb = (bg/256)&255, bb = bg&255;
       SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
@@ -1116,21 +1111,6 @@ turn_off_face (struct frame *f, int face_id)
 {
   struct tty_display_info *tty = FRAME_TTY (f);
   w32con_write_vt_seq (tty->TS_exit_attribute_mode);
-}
-
-/* returns the pixel value for the given index into VT base color map */
-static unsigned long pixel_cache[16];
-static unsigned long
-get_pixel (unsigned long index)
-{
-  unsigned int i = (unsigned int) index;
-  if (i > 15) return 0;
-  if (i == 0 || pixel_cache[i] > 0)
-    return pixel_cache[i];
-
-  Lisp_Object pix = safe_calln (Qw32con_get_pixel, make_ufixnum (i));
-  pixel_cache[i] = (unsigned long) XUFIXNUM (pix);
-  return pixel_cache[i];
 }
 
 /***********************************************************************
@@ -1335,32 +1315,60 @@ initialize_w32_display (struct terminal *term, int *width, int *height)
                             Lisp Interface
 ***********************************************************************/
 
-/* TODO - migrate to VT sequences (256 and 24bit color) */
-DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
+DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 3, 0,
        doc: /* Set screen foreground and background colors.
 
-Arguments should be indices between 0 and 15, see w32console.el.  */)
-  (Lisp_Object foreground, Lisp_Object background)
+Arguments should be indices for colors in the list returned by `tty-color-alist'.
+If `legacy' is omitted or nil, settings affect virtual terminal processing only.
+If `legacy' is non-nil, arguments should be between 0 and 15, and settings will
+be effective only when virtual terminal processing is disabled.
+
+See w32console.el and the documentation for `use-virtual-terminal'.  */)
+  (Lisp_Object foreground, Lisp_Object background, Lisp_Object legacy)
 {
+  int fg = XFIXNAT (foreground);
+  int bg = XFIXNAT (background);
 
-  fg_normal = XFIXNAT (foreground);
-  bg_normal = XFIXNAT (background);
-  char_attr_normal = fg_normal + (bg_normal << 4);
+  if (NILP (legacy))
+    {
+      if (fg >= current_tty->TN_max_colors || bg >= current_tty->TN_max_colors)
+	return Qnil;
 
+      fg_normal = fg;
+      bg_normal = bg;
+    }
+  else
+    {
+      if (fg > 15 || bg > 15) return Qnil;
+      char_attr_normal = fg + (bg << 4);
+    }
   Frecenter (Qnil, Qt);
   return Qt;
 }
 
-DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 0, 0,
+DEFUN ("get-screen-color", Fget_screen_color, Sget_screen_color, 0, 1, 0,
        doc: /* Get color indices of the current screen foreground and background.
 
-The colors are returned as a list of 2 indices (FOREGROUND BACKGROUND).
-See w32console.el and `tty-defined-color-alist' for mapping of indices
-to colors.  */)
-  (void)
+The colors are returned as a list of 2 indices (FOREGROUND BACKGROUND) for
+colors in the list returned by `tty-color-alist`.
+
+If `legacy' is omitted or nil, returns settings effective when virtual terminal
+processing is enabled.  If `legacy' is non-nil, returns settings effective when
+virtual terminal processing is disabled.
+
+See w32console.el and the documentation for `use-virtual-terminal'.  */)
+  (Lisp_Object legacy)
 {
-  return Fcons (make_fixnum (fg_normal),
-		Fcons (make_fixnum (bg_normal), Qnil));
+  if (NILP (legacy))
+    {
+      return Fcons (make_fixnum (fg_normal),
+		    Fcons (make_fixnum (bg_normal), Qnil));
+    }
+  else
+    {
+      return Fcons (make_fixnum (char_attr_normal & 0x000f),
+		    Fcons (make_fixnum ((char_attr_normal >> 4) & 0x000f)));
+    }
 }
 
 DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
@@ -1421,9 +1429,6 @@ scroll-back buffer.  */);
 
   DEFSYM (Qw32con_set_up_initial_frame_faces,
 	  "w32con-set-up-initial-frame-faces");
-
-  DEFSYM (Qw32con_get_pixel,
-	  "w32con-get-pixel");
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);

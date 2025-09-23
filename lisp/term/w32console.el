@@ -25,6 +25,7 @@
 ;;; Code:
 
 ;; W32 uses different color indexes than standard:
+
 (defvar w32-tty-standard-colors
   '(("black"          0     0     0     0)
     ("blue"           1     0     0 52480) ; MediumBlue
@@ -51,28 +52,26 @@
 (declare-function use-virtual-terminal "w32console.c")
 (declare-function use-virtual-cursor "w32console.c")
 
-(defun w32-tty-set-base-colors ()
-  "Reorder standard colors based on whether VT sequences are used."
-  (let* ((vga
-          '("black"     "blue"         "green"      "cyan"
-            "red"       "magenta"      "brown"      "lightgray"
-            "darkgray"  "lightblue"    "lightgreen" "lightcyan"
-            "lightred"  "lightmagenta" "yellow"     "white"))
-         (vt
-          '("black"     "red"          "green"      "brown"
-            "blue"      "magenta"      "cyan"       "lightgray"
-            "darkgray"  "lightred"     "lightgreen" "yellow"
-            "lightblue" "lightmagenta" "lightcyan"  "white"))
-         (seq (if (use-virtual-terminal) vt vga)))
-    (setq w32-tty-standard-colors
-          (mapcar
-           (lambda (n) (let ((c (assoc n w32-tty-standard-colors)))
-                    (cons n (cons (seq-position seq n) (cddr c)))))
-           seq))))
+(defun w32-tty-base-colors (&optional legacy)
+  "Get 16 basic colors for w32console; permuted if legacy is non-nil."
+  (let ((seq
+         (if legacy
+             '("black"     "blue"         "green"      "cyan"
+               "red"       "magenta"      "brown"      "lightgray"
+               "darkgray"  "lightblue"    "lightgreen" "lightcyan"
+               "lightred"  "lightmagenta" "yellow"     "white")
+             '("black"     "red"          "green"      "brown"
+               "blue"      "magenta"      "cyan"       "lightgray"
+               "darkgray"  "lightred"     "lightgreen" "yellow"
+               "lightblue" "lightmagenta" "lightcyan"  "white"))))
+    (mapcar
+     (lambda (n) (let ((c (assoc n w32-tty-standard-colors)))
+              (cons n (cons (seq-position seq n) (cddr c)))))
+     seq)))
 
-(defun w32con-define-base-colors ()
+(defun w32con-define-base-colors (&optional legacy)
   "Defines base 16-color space for w32 console."
-  (let* ((colors (w32-tty-set-base-colors))
+  (let* ((colors (w32-tty-base-colors legacy))
          (nbase (length colors))
          (color (car colors)))
     (progn (while colors
@@ -80,13 +79,6 @@
              (setq colors (cdr colors)
                    color  (car colors)))
            nbase)))
-
-;; Note: tty-color-define swaps passed index for pixel on 24bit terminal
-;; So, we need this function to "recover" the terminal's native mapping
-(defun w32con-get-pixel (index)
-  "Convert a base-color index into a pixel (index into 24bit map)"
-  (let ((color (nth index w32-tty-standard-colors)))
-    (or (tty-color-24bit (cddr color)) index)))
 
 (defun w32con-define-256-colors ()
   "Defines 256-color space for w32 console."
@@ -118,6 +110,14 @@
                    (setq i (1+ i))))
           color-name-rgb-alist)))
 
+;; Note: since tty-color-define swaps index for pixel on 24bit display,
+;; we need this function to bootstrap 24bit virtual terminal processing
+;; from the indices retrieved via the legacy Windows Console API.
+(defun w32con-get-pixel (index)
+  "Convert a legacy color index (0..15) into a pixel value."
+  (let ((color (nth index (w32-tty-base-colors t))))
+    (or (tty-color-24bit (cddr color)) index)))
+
 (defun terminal-init-w32console ()
   "Terminal initialization function for w32 console."
   ;; Share function key initialization with w32 gui frames
@@ -137,35 +137,38 @@
       ;; Since we changed the terminal encoding, we need to repeat
       ;; the test for Unicode quotes being displayable.
       (startup--setup-quote-display)))
+  ;; do we need this, now that tty-set-up-initial-frame faces calls it?
   (w32con-set-up-initial-frame-faces)
   (run-hooks 'terminal-init-w32-hook))
 
 ;; Called from tty-set-up-initial-frame-faces in faces.el
 (defun w32con-set-up-initial-frame-faces ()
   "Set up initial face color scheme dynamically based on the number of
-display colors and the value of `w32-use-virtual-terminal-sequences'."
+display colors and whether virtual terminal sequences are in-use."
   (tty-color-clear)
-  (let ((ncolors (display-color-cells)))
-    (if (use-virtual-terminal)
-        (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
-              ((= ncolors 265       (w32con-define-256-colors)))
-              (t                    (w32con-define-base-colors)))
-      (w32con-define-base-colors))
+  (let ((ncolors (display-color-cells))
+        (legacy (not (use-virtual-terminal))))
+    (setq w32-tty-standard-colors (w32-tty-base-colors legacy))
+    (if legacy
+        (w32con-define-base-colors t)
+      (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
+            ((= ncolors 265)      (w32con-define-256-colors))
+            (t                    (w32con-define-base-colors))))
     (clear-face-cache)
     ;; Figure out what are the colors of the console window, and set up
-    ;; the background-mode correspondingly.
-    (let* ((screen-color (get-screen-color))
-           (base-index (cadr screen-color))
-           (bg-pixel (w32con-get-pixel base-index))
-           (bg (if (= ncolors 16777216) bg-pixel base-index))
-           (descr (tty-color-by-index bg))
-           r g b bg-mode)
-      (setq r (nth 2 descr)
-            g (nth 3 descr)
-            b (nth 4 descr))
-      (if (< (+ r g b) (* .6 (+ 65535 65535 65535)))
-          (setq bg-mode 'dark)
-        (setq bg-mode 'light))
+    ;; the background-mode and default colors correspondingly.
+    (let* ((screen-color (get-screen-color legacy))
+           (fg (car  screen-color))
+           (bg (cadr screen-color))
+           (bootstrap (and (not legacy) (= ncolors 16777216)
+                           (< fg 16)    (< bg 16)))
+           (fg (if bootstrap (w32con-get-pixel fg) fg))
+           (bg (if bootstrap (w32con-get-pixel bg) bg))
+           (bg-col (tty-color-by-index bg))
+           (bg-dark (< (+ (nth 2 bg-col) (nth 3 bg-col) (nth 4 bg-col))
+                       (* .6 (+ 65535 65535 65535))))
+           (bg-mode (if bg-dark 'dark 'light)))
+      (set-screen-color fg bg legacy)
       (set-terminal-parameter nil 'background-mode bg-mode))))
 
 (provide 'term/w32console)
