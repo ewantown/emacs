@@ -2405,6 +2405,7 @@ If you set `term-file-prefix' to nil, this function does nothing."
 
 ;; Called from C function init_display to initialize faces of the
 ;; dumped terminal frame on startup.
+(declare-function w32con-set-up-initial-frame-faces "w32console" ())
 
 (defun tty-set-up-initial-frame-faces ()
   (progn
