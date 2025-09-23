@@ -1367,7 +1367,7 @@ See w32console.el and the documentation for `use-virtual-terminal'.  */)
   else
     {
       return Fcons (make_fixnum (char_attr_normal & 0x000f),
-		    Fcons (make_fixnum ((char_attr_normal >> 4) & 0x000f)));
+		    Fcons (make_fixnum ((char_attr_normal >> 4) & 0x000f), Qnil));
     }
 }
 
