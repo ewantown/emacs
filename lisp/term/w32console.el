@@ -168,7 +168,10 @@ display colors and whether virtual terminal sequences are in-use."
            (bg-dark (< (+ (nth 2 bg-col) (nth 3 bg-col) (nth 4 bg-col))
                        (* .6 (+ 65535 65535 65535))))
            (bg-mode (if bg-dark 'dark 'light)))
-      (set-screen-color fg bg legacy)
+      (if (not (set-screen-color fg bg legacy))
+          (warn (concat "'w32con-set-up-initial-frame-faces'"
+                        " failed to set TTY colors: (%d %d)")
+                fg bg))
       (set-terminal-parameter nil 'background-mode bg-mode))))
 
 (provide 'term/w32console)
