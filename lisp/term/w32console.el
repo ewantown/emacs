@@ -160,19 +160,19 @@ display colors and whether virtual terminal sequences are in-use."
     (let* ((screen-color (get-screen-color))
            (fg (car  screen-color))
            (bg (cadr screen-color))
-           (bootstrap (and (not legacy) (= ncolors 16777216)
-                           (< fg 16)    (< bg 16)))
+           (bootstrap (and (not legacyp) (= ncolors 16777216)
+                           (< fg 16) (< bg 16) (not (= 0 fg bg))))
            (fg (if bootstrap (w32con-get-pixel fg) fg))
            (bg (if bootstrap (w32con-get-pixel bg) bg))
            (bg-col (tty-color-by-index bg))
            (bg-dark (< (+ (nth 2 bg-col) (nth 3 bg-col) (nth 4 bg-col))
                        (* .6 (+ 65535 65535 65535))))
            (bg-mode (if bg-dark 'dark 'light)))
-      (if (not (set-screen-color fg bg))
-          (warn (concat "'w32con-set-up-initial-frame-faces'"
-                        " failed to set TTY colors: (%d %d)")
-                fg bg))
-      (set-terminal-parameter nil 'background-mode bg-mode))))
+      (set-terminal-parameter nil 'background-mode bg-mode)
+      (when (and bootstrap (not (set-screen-color fg bg)))
+        (warn (concat "'w32con-set-up-initial-frame-faces'"
+                      " failed to set TTY colors: (%d %d)")
+              fg bg)))))
 
 (provide 'term/w32console)
 
