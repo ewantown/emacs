@@ -2407,9 +2407,13 @@ If you set `term-file-prefix' to nil, this function does nothing."
 ;; dumped terminal frame on startup.
 
 (defun tty-set-up-initial-frame-faces ()
-  (let ((frame (selected-frame)))
-    (frame-set-background-mode frame t)
-    (face-set-after-frame-default frame)))
+  (progn
+    (when (eq system-type 'windows-nt)
+      (require 'term/w32console)
+      (w32con-set-up-initial-frame-faces))
+    (let ((frame (selected-frame)))
+      (frame-set-background-mode frame t)
+      (face-set-after-frame-default frame))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

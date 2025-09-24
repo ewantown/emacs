@@ -3334,6 +3334,17 @@ Accordingly, we have revised our recommendations for a suitable DJGPP
 toolchain to GCC 14.2.0 and Binutils 2.35.1 in lieu of GCC 3.4.x and
 Binutils 2.26.
 
++++
+** Windows Terminal now displays 256 and 24-bit RGB color.
+Previously, terminal sessions on Windows supported display of 16
+colors.  There is now support for 256 and 24-bit RGB color.
+The new mechanism will be enabled automatically when supported.
+It defaults to 24-bit RGB color, but can be set to 8, 16, 256, or '24bit
+by passing the '--color' flag or setting the 'tty-color-mode'
+frame parameter.  Use of the new mechanism is controlled by an internal
+variable that can inspected and set via the function 'use-virtual-terminal'.
+See the manual entry specific to MS-Windows for more details.
+
 
 ----------------------------------------------------------------------
 This file is part of GNU Emacs.
