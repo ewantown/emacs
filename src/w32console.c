@@ -79,6 +79,8 @@ HANDLE  keyboard_handle;
 int w32_console_unicode_input;
 extern int w32_use_virtual_terminal;
 int w32_use_virtual_terminal = 1;
+extern struct tty_display_info *current_tty;
+struct tty_display_info *current_tty = NULL;
 
 /* Setting this as the ctrl handler prevents emacs from being killed when
    someone hits ^C in a 'suspended' session (child shell).
@@ -713,8 +715,6 @@ sys_tgetstr (char *cap, char **area)
 			stubs from cm.c
  ***********************************************************************/
 
-extern struct tty_display_info *current_tty;
-struct tty_display_info *current_tty = NULL;
 extern int cost;
 int cost = 0;
 
