@@ -60,6 +60,7 @@ static WORD w32_face_attributes (struct frame *f, int face_id);
 static int  w32con_write_vt_seq (char *);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
+extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
@@ -601,7 +602,13 @@ w32con_setup_virtual_terminal (void)
   int out_mode_set = SetConsoleMode (cur_screen, out_mode);
   w32_use_virtual_terminal = w32_use_virtual_terminal && out_mode_set;
 
+  if (w32_use_virtual_terminal)
+    tty_setup_colors (current_tty, 16777216);
+  else
+    tty_setup_colors (current_tty, 16);
+
   safe_calln (Qtty_set_up_initial_frame_faces);
+  recompute_basic_faces (XFRAME (selected_frame));
 }
 
 static void

@@ -2246,7 +2246,7 @@ tty_default_color_capabilities (struct tty_display_info *tty, bool save)
    MODE's value is generally the number of colors which we want to
    support; zero means set up for the default capabilities, the ones
    we saw at init_tty time; -1 means turn off color support.  */
-static void
+void
 tty_setup_colors (struct tty_display_info *tty, int mode)
 {
   /* Canonicalize all negative values of MODE.  */
@@ -2333,6 +2333,7 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
       tty_setup_colors (tty , mode);
       /*  This recomputes all the faces given the new color definitions.  */
       safe_calln (Qtty_set_up_initial_frame_faces);
+      recompute_basic_faces (f);
     }
 }
 
