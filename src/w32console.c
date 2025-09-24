@@ -79,7 +79,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "lisp.h"
 #include "coding.h"
-#include "frame.h"
 #include "termchar.h"	/* for FRAME_TTY */
 #include "dispextern.h"	/* for tty_defined_color */
 #include "menu.h"	/* for tty_menu_show */
@@ -114,7 +113,6 @@ void w32con_hide_cursor (void);
 void w32con_draw_cursor (struct frame *f);
 
 extern void tty_setup_colors (struct tty_display_info *tty, int mode);
-extern void recompute_basic_faces (struct frame *f);
 
 static COORD    cursor_coords;
 static COORD    saved_coords;
@@ -860,7 +858,6 @@ w32con_setup_virtual_terminal (void)
     tty_setup_colors (current_tty, 16);
 
   safe_calln (Qtty_set_up_initial_frame_faces);
-  recompute_basic_faces (XFRAME (selected_frame));
 }
 
 static void
