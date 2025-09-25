@@ -664,7 +664,7 @@ w32con_set_terminal_modes (struct terminal *t)
   /* Initialize input mode: interrupt_input off, no flow control, allow
      8 bit character input, standard quit char.  */
   Fset_input_mode (Qnil, Qnil, make_fixnum (2), Qnil);
-  w32con_setup_virtual_terminal();
+  w32con_setup_virtual_terminal ();
 }
 
 /* hmmm... perhaps these let us bracket screen changes so that we can flush
