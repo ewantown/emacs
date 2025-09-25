@@ -69,7 +69,7 @@
                     (cons n (cons (seq-position seq n) (cddr c)))))
            seq))))
 
-(defun w32con-define-base-colors ()
+(defun w32-tty-define-base-colors ()
   "Defines base 16-color space for w32 tty display."
   (let* ((colors w32-tty-standard-colors)
          (nbase (length colors))
@@ -80,10 +80,10 @@
                    color  (car colors)))
            nbase)))
 
-(defun w32con-define-256-colors ()
+(defun w32-tty-define-256-colors ()
   "Defines 256-color space for w32 tty display."
   (let ((r 0) (b 0) (g 0)
-        (n (- 256 (w32con-define-base-colors)))
+        (n (- 256 (w32-tty-define-base-colors)))
         (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
     (while (> n 24) ; non-grey
       (let ((i (- 256 n))
@@ -102,16 +102,16 @@
         (tty-color-define (format "color-%d" i) i c))
       (setq n (1- n)))))
 
-(defun w32con-define-24bit-colors ()
+(defun w32-tty-define-24bit-colors ()
   "Defines 24-bit color space for w32 tty display."
-  (let ((i (w32con-define-base-colors)))
+  (let ((i (w32-tty-define-base-colors)))
     (mapc (lambda (c) (unless (assoc (car c) w32-tty-standard-colors)
                    (tty-color-define (car c) i (cdr c))
                    (setq i (1+ i))))
           color-name-rgb-alist)))
 
 ;; tty-color-define swaps indices for pixel values on 24bit display
-(defun w32con-get-pixel (index)
+(defun w32-tty-get-pixel (index)
   "Convert a legacy color INDEX (0..15) into a pixel value."
   (let ((color (nth index w32-tty-standard-colors)))
     (or (tty-color-24bit (cddr color)) index)))
@@ -135,25 +135,22 @@
       ;; Since we changed the terminal encoding, we need to repeat
       ;; the test for Unicode quotes being displayable.
       (startup--setup-quote-display)))
-  (w32con-set-up-initial-frame-faces)
+  (w32-tty-set-up-initial-frame-faces)
   (run-hooks 'terminal-init-w32-hook))
 
 ;; Called from tty-set-up-initial-frame-faces in faces.el
-(defun w32con-set-up-initial-frame-faces ()
-  "Set up initial face color scheme dynamically based on the number of
-display colors and whether virtual terminal sequences are in-use."
+(defun w32-tty-set-up-colors ()
+  "Set up color definitions and frame parameters for w32 tty display."
   (tty-color-clear)
   (let ((ncolors (display-color-cells))
         (vtp (use-virtual-terminal)))
     (w32-tty-set-base-colors vtp)
     (if vtp
-        (cond ((= ncolors 16777216) (w32con-define-24bit-colors))
-              ((= ncolors 265)      (w32con-define-256-colors))
-              (t                    (w32con-define-base-colors)))
-      (w32con-define-base-colors))
+        (cond ((= ncolors 16777216) (w32-tty-define-24bit-colors))
+              ((= ncolors 265)      (w32-tty-define-256-colors))
+              (t                    (w32-tty-define-base-colors)))
+      (w32-tty-define-base-colors))
     (clear-face-cache)
-    ;; Figure out what are the colors of the console window, and set up
-    ;; the background-mode and default colors correspondingly.
     (let* ((screen-color (get-screen-color vtp))
            (fg (car  screen-color))
            (bg (cadr screen-color))
@@ -162,8 +159,8 @@ display colors and whether virtual terminal sequences are in-use."
            (fallback  (and vtp (< ncolors 16777216)
                            (or (< ncolors fg) (< ncolors bg))))
            (screen-color (if fallback (get-screen-color t) screen-color))
-           (fg (if bootstrap (w32con-get-pixel fg) (car  screen-color)))
-           (bg (if bootstrap (w32con-get-pixel bg) (cadr screen-color)))
+           (fg (if bootstrap (w32-tty-get-pixel fg) (car  screen-color)))
+           (bg (if bootstrap (w32-tty-get-pixel bg) (cadr screen-color)))
            (bg-col (tty-color-by-index bg))
            (bg-dark (< (+ (nth 2 bg-col) (nth 3 bg-col) (nth 4 bg-col))
                        (* .6 (+ 65535 65535 65535))))
@@ -171,8 +168,8 @@ display colors and whether virtual terminal sequences are in-use."
       (set-terminal-parameter nil 'background-mode bg-mode)
       (when (and (or bootstrap fallback)
                  (not (set-screen-color fg bg t)))
-        (warn (concat "'w32con-set-up-initial-frame-faces'"
-                      " failed to set TTY colors: (%d %d)")
+        (warn (concat "'w32-tty-set-up-tty-colors'"
+                      " failed to set terminal colors: (%d %d)")
               fg bg)))))
 
 (provide 'term/w32console)
