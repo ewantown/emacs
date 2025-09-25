@@ -2410,7 +2410,7 @@ If you set `term-file-prefix' to nil, this function does nothing."
   (progn
     (when (eq system-type 'windows-nt)
       (require 'term/w32console)
-      (w32-tty-set-up-colors))
+      (w32-tty-setup-colors))
     (let ((frame (selected-frame)))
       (frame-set-background-mode frame t)
       (face-set-after-frame-default frame))))

@@ -139,7 +139,7 @@
   (run-hooks 'terminal-init-w32-hook))
 
 ;; Called from tty-set-up-initial-frame-faces in faces.el
-(defun w32-tty-set-up-colors ()
+(defun w32-tty-setup-colors ()
   "Set up color definitions and frame parameters for w32 tty display."
   (tty-color-clear)
   (let ((ncolors (display-color-cells))
