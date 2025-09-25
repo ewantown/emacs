@@ -1099,10 +1099,6 @@ See w32console.el and the documentation for `use-virtual-terminal'.  */)
 {
   int fg = XFIXNAT (foreground);
   int bg = XFIXNAT (background);
-  int nc = NILP (vtp) ? 16 : current_tty->TN_max_colors;
-
-  if (fg >= nc || bg >= nc)
-    return Qnil;
 
   if (NILP (vtp))
     {
@@ -1131,16 +1127,10 @@ virtual terminal processing is disabled.
 See w32console.el and the documentation for `use-virtual-terminal'.  */)
   (Lisp_Object vtp)
 {
-  if (NILP (vtp))
-    {
-      return Fcons (make_fixnum (char_attr_normal & 0x000f),
-		    Fcons (make_fixnum ((char_attr_normal >> 4) & 0x000f), Qnil));
-    }
-  else
-    {
-      return Fcons (make_fixnum (fg_normal),
-		    Fcons (make_fixnum (bg_normal), Qnil));
-    }
+  int fg = NILP (vtp) ? char_attr_normal & 0x000f : fg_normal;
+  int bg = NILP (vtp) ? (char_attr_normal >> 4) & 0x000f : bg_normal;
+
+  return Fcons (make_fixnum (fg), Fcons (make_fixnum (bg), Qnil));
 }
 
 DEFUN ("use-virtual-terminal", Fuse_virtual_terminal, Suse_virtual_terminal, 0, 1, 0,

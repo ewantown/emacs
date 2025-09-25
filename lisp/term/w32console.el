@@ -166,11 +166,8 @@
                        (* .6 (+ 65535 65535 65535))))
            (bg-mode (if bg-dark 'dark 'light)))
       (set-terminal-parameter nil 'background-mode bg-mode)
-      (when (and (or bootstrap fallback)
-                 (not (set-screen-color fg bg t)))
-        (warn (concat "'w32-tty-set-up-tty-colors'"
-                      " failed to set terminal colors: (%d %d)")
-              fg bg)))))
+      (when (or bootstrap fallback)
+        (set-screen-color fg bg t)))))
 
 (provide 'term/w32console)
 
