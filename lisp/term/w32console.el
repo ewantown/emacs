@@ -52,7 +52,7 @@
 (declare-function use-virtual-terminal "w32console.c")
 
 (defun w32-tty-set-base-colors (vtp)
-  "Get 16 basic colors for w32console."
+  "Re-order `w32-tty-standard-colors' based on the value of VTP."
   (let ((seq
          (if vtp
              '("black"     "red"          "green"      "brown"
@@ -70,7 +70,7 @@
            seq))))
 
 (defun w32con-define-base-colors ()
-  "Defines base 16-color space for w32 console."
+  "Defines base 16-color space for w32 tty display."
   (let* ((colors w32-tty-standard-colors)
          (nbase (length colors))
          (color (car colors)))
@@ -81,7 +81,7 @@
            nbase)))
 
 (defun w32con-define-256-colors ()
-  "Defines 256-color space for w32 console."
+  "Defines 256-color space for w32 tty display."
   (let ((r 0) (b 0) (g 0)
         (n (- 256 (w32con-define-base-colors)))
         (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
@@ -103,18 +103,16 @@
       (setq n (1- n)))))
 
 (defun w32con-define-24bit-colors ()
-  "Defines 24-bit color space for w32 console."
+  "Defines 24-bit color space for w32 tty display."
   (let ((i (w32con-define-base-colors)))
     (mapc (lambda (c) (unless (assoc (car c) w32-tty-standard-colors)
                    (tty-color-define (car c) i (cdr c))
                    (setq i (1+ i))))
           color-name-rgb-alist)))
 
-;; Note: since tty-color-define swaps index for pixel on 24bit display,
-;; we need this function to bootstrap 24bit virtual terminal processing
-;; from the indices retrieved via the legacy Windows Console API.
+;; tty-color-define swaps indices for pixel values on 24bit display
 (defun w32con-get-pixel (index)
-  "Convert a legacy color index (0..15) into a pixel value."
+  "Convert a legacy color INDEX (0..15) into a pixel value."
   (let ((color (nth index w32-tty-standard-colors)))
     (or (tty-color-24bit (cddr color)) index)))
 
