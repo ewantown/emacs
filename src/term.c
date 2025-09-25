@@ -2282,9 +2282,9 @@ tty_setup_colors (struct tty_display_info *tty, int mode)
 	break;
 #ifdef WINDOWSNT
       case 16:
+	tty->TN_max_colors = 16;
 	tty->TS_set_foreground = "\x1b[%lum";
 	tty->TS_set_background = "\x1b[%lum";
-	tty->TN_max_colors = 16;
 	tty->TN_no_color_video = 0;
 	break;
       case 256:
@@ -2333,7 +2333,6 @@ set_tty_color_mode (struct tty_display_info *tty, struct frame *f)
       tty_setup_colors (tty , mode);
       /*  This recomputes all the faces given the new color definitions.  */
       safe_calln (Qtty_set_up_initial_frame_faces);
-      recompute_basic_faces (f);
     }
 }
 

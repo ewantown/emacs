@@ -38,7 +38,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "w32term.h"
 #include "w32common.h"	/* for os_subtype */
 #include "w32inevt.h"
-#include "frame.h"      /* for selected_frame */
 
 #ifdef WINDOWSNT
 #include "w32.h"	/* for syms_of_ntterm */
@@ -604,11 +603,12 @@ w32con_setup_virtual_terminal (void)
   int out_mode_set = SetConsoleMode (cur_screen, out_mode);
   w32_use_virtual_terminal = w32_use_virtual_terminal && out_mode_set;
 
-  if (!w32_use_virtual_terminal && current_tty->TN_max_colors > 16)
+  if (w32_use_virtual_terminal)
+    tty_setup_colors (current_tty, 16777216);
+  else
     tty_setup_colors (current_tty, 16);
 
   safe_calln (Qtty_set_up_initial_frame_faces);
-  recompute_basic_faces (XFRAME (selected_frame));
 }
 
 static void
@@ -824,10 +824,6 @@ turn_on_face (struct frame *f, int face_id)
   unsigned long fg = face->foreground;
   unsigned long bg = face->background;
 
-  /* if out of range, set to default value */
-  if (DEFAULTP (fg)) fg = fg_normal;
-  if (DEFAULTP (bg)) bg = bg_normal;
-
   /* construct combined VT sequence for face attributes */
   DWORD n = 0;
   size_t sz = SEQMAX;
@@ -842,9 +838,14 @@ turn_on_face (struct frame *f, int face_id)
     SSPRINTF (seq, &n, sz, tty->TS_enter_strike_through_mode, NULL);
   if (face->underline != 0)
     SSPRINTF (seq, &n, sz, tty->TS_enter_underline_mode, NULL);
-  /* Note: the values of fg and bg are already swapped when fg and bg are
-     set and face->tty_reverse_p. Adding the terminal sequence contained
-     in tty->TS_enter_reverse_mode swaps them back, which is no good. */
+  /* Note: when face->tty_reverse_p != 0 and fg and bg are specified,
+     their values are already swapped and reversing them here would swap
+     them back, but we need to handle the reversal when unspecified.  */
+  if (face->tty_reverse_p && DEFAULTP (fg) && DEFAULTP (bg))
+    SSPRINTF (seq, &n, sz, tty->TS_enter_reverse_mode, NULL);
+
+  if (DEFAULTP (fg)) fg = fg_normal;
+  if (DEFAULTP (bg)) bg = bg_normal;
 
   const char *set_fg = tty->TS_set_foreground;
   const char *set_bg = tty->TS_set_background;
