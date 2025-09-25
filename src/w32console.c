@@ -603,10 +603,8 @@ w32con_setup_virtual_terminal (void)
   int out_mode_set = SetConsoleMode (cur_screen, out_mode);
   w32_use_virtual_terminal = w32_use_virtual_terminal && out_mode_set;
 
-  if (w32_use_virtual_terminal)
-    tty_setup_colors (current_tty, 16777216);
-  else
-    tty_setup_colors (current_tty, 16);
+  int max_colors = w32_use_virtual_terminal ? 16777216 : 16;
+  tty_setup_colors (current_tty, max_colors);
 
   safe_calln (Qtty_set_up_initial_frame_faces);
 }
