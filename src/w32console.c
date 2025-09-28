@@ -1183,6 +1183,7 @@ scroll-back buffer.  */);
 
   defsubr (&Sset_screen_color);
   defsubr (&Sget_screen_color);
-  defsubr (&Suse_virtual_terminal);
+  defsubr (&Sw32_use_virtual_terminal);
+  defsubr (&Sw32_use_virtual_terminal_p);
   defsubr (&Sset_cursor_size);
 }
