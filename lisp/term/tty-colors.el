@@ -765,6 +765,7 @@
     (ansi8 . 8)
     (always . 8)
     (yes . 8)
+    (8bit . 256)
     (24bit . 16777216))
   "An alist of supported standard tty color modes and their aliases.")
 

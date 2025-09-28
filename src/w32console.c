@@ -56,10 +56,9 @@ static void w32con_set_terminal_modes (struct terminal *t);
 static void w32con_update_begin (struct frame * f);
 static void w32con_update_end (struct frame * f);
 static WORD w32_face_attributes (struct frame *f, int face_id);
-static int  w32con_write_vt_seq (char *);
+static int  w32con_write_vt_seq (const char *);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
-extern void tty_setup_colors (struct tty_display_info *tty, int mode);
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
@@ -111,7 +110,7 @@ ctrl_c_handler (unsigned long type)
 
 /* Writes virtual terminal sequence to screen */
 static int
-w32con_write_vt_seq (char *seq)
+w32con_write_vt_seq (const char *seq)
 {
   char buf[SEQMAX];
   DWORD n = 0, k = 0;
@@ -852,15 +851,19 @@ turn_on_face (struct frame *f, int face_id)
       /* fg and bg are indices into 16 base colors (see link at top).  */
       unsigned long fgi = 0, bgi = 0;
 
-      fgi = (fg >= 0  && fg < 8)  ? fg + 30
-	:   (fg >= 8  && fg < 16) ? fg - 8 + 90
-	: 0;
+      fgi = (fg >= 0  && fg < 8)
+	    ? fg + 30
+	    : (fg >= 8  && fg < 16)
+	      ? fg - 8 + 90
+	      : 0;
       if (fgi)
 	SSPRINTF (seq, &n, sz, set_fg, fgi);
 
-      bgi = (bg >= 0  && bg < 8)  ? bg + 40
-	:   (bg >= 8  && bg < 16) ? bg - 8 + 100
-	: 0;
+      bgi = (bg >= 0  && bg < 8)
+	    ? bg + 40
+	    : (bg >= 8  && bg < 16)
+	      ? bg - 8 + 100
+	      : 0;
       if (bgi)
 	SSPRINTF (seq, &n, sz, set_bg, bgi);
     }
@@ -881,7 +884,7 @@ turn_on_face (struct frame *f, int face_id)
       SSPRINTF (seq, &n, sz, set_fg, rf, gf, bf);
       SSPRINTF (seq, &n, sz, set_bg, rb, gb, bb);
     }
-  w32con_write_vt_seq (seq);
+  w32con_write_vt_seq ((const char *) seq);
 }
 
 static void
@@ -1092,7 +1095,7 @@ If VTP is non-nil, settings affect virtual terminal processing only.
 Otherwise, arguments should be between 0 and 15, and settings will
 be effective only when virtual terminal processing is disabled.
 
-See w32console.el and the documentation for `use-virtual-terminal'.  */)
+See w32console.el and the documentation for `w32-use-virtual-terminal'.  */)
   (Lisp_Object foreground, Lisp_Object background, Lisp_Object vtp)
 {
   int fg = XFIXNAT (foreground);
@@ -1122,7 +1125,7 @@ If VTP is non-nil, returns settings effective when virtual terminal
 processing is enabled.  Otherwise, returns settings effective when
 virtual terminal processing is disabled.
 
-See w32console.el and the documentation for `use-virtual-terminal'.  */)
+See w32console.el and the documentation for `w32-use-virtual-terminal'.  */)
   (Lisp_Object vtp)
 {
   int fg = NILP (vtp) ? char_attr_normal & 0x000f : fg_normal;
@@ -1131,20 +1134,26 @@ See w32console.el and the documentation for `use-virtual-terminal'.  */)
   return Fcons (make_fixnum (fg), Fcons (make_fixnum (bg), Qnil));
 }
 
-DEFUN ("use-virtual-terminal", Fuse_virtual_terminal, Suse_virtual_terminal, 0, 1, 0,
-       doc: /* Inspect or enable/disable virtual terminal sequence processing.
-
-If argument is zero, disable virtual terminal sequence processing.
-If argument is a non-zero number, enable virtual terminal sequence processing.
-If argument is omitted or nil, just inspect the current state.
-Returns t (nil) if virtual terminal sequence processing is enabled (disabled).  */)
+DEFUN ("w32-use-virtual-terminal", Fw32_use_virtual_terminal, Sw32_use_virtual_terminal, 1, 1, 0,
+       doc: /* Enables (disables) virtual terminal sequence processing if argument is t (nil).  */)
   (Lisp_Object arg)
 {
-  if (!NILP (arg))
-    {
-      w32_use_virtual_terminal = XFIXNAT (arg);
-      w32con_setup_virtual_terminal ();
-    }
+  if (EQ (arg, Qt))
+    w32_use_virtual_terminal = 1;
+  else if (EQ (arg, Qnil))
+    w32_use_virtual_terminal = 0;
+  else {
+    error ("Invalid argument: expects t or nil.");
+    return Qnil;
+  }
+
+  return Qt;
+}
+
+DEFUN ("w32-use-virtual-terminal-p", Fw32_use_virtual_terminal_p, Sw32_use_virtual_terminal_p, 0, 0, 0,
+       doc: /* Returns t (nil) if virtual terminal sequence processing is enabled (disabled).  */)
+  (void)
+{
   return w32_use_virtual_terminal ? Qt : Qnil;
 }
 

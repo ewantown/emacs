@@ -2409,7 +2409,6 @@ If you set `term-file-prefix' to nil, this function does nothing."
 (defun tty-set-up-initial-frame-faces ()
   (progn
     (when (eq system-type 'windows-nt)
-      (require 'term/w32console)
       (w32-tty-setup-colors))
     (let ((frame (selected-frame)))
       (frame-set-background-mode frame t)

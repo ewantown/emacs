@@ -1200,7 +1200,7 @@ you should set its value in your init file (@pxref{Init File}), either
 directly or via @kbd{M-x customize-variable}, which lets you save the
 customized value, see @ref{Saving Customizations}.
 
-@vindex use-virtual-terminal
+@findex w32-use-virtual-terminal
 @cindex Windows Terminal, Windows Console, MS-Windows
   The implementation of display functionality for Windows Console
 differs from the implementation for other terminal emulators,
@@ -1210,21 +1210,22 @@ With the introduction of Windows Terminal, Microsoft implemented
 support for ANSI control sequences, modelled on the VT100 and Xterm,
 as well as 24-bit RBG color display.
 
-  The function @code{use-virtual-terminal} can be used to set or inspect
-an internal variable which determines whether this newer mechanism is
-used for display, or the older one.  The internal variable is
+  The functions @code{w32-use-virtual-terminal} and
+@code{w32-use-virtual-terminal-p} can be used to set and inspect
+(respectively) an internal variable which determines whether this newer
+mechanism is used for display, or the older one.  The internal variable is
 automatically set based on your terminal's capabilities on startup.
 By default, 24-bit RGB color will be used, but other (8, 16, 256) color
 spaces may be used, by passing the @code{--color} command line argument,
 or setting the value of the @code{tty-color-mode} frame parameter.
 
-   @code{(use-virtual-terminal)} evaluates to @code{t} if and only if
+   @code{'(w32-use-virtual-terminal-p)} evaluates to @code{t} if and only if
 the internal variable has a non-zero numerical value, and otherwise to
 @code{nil}.  If it evaluates to @code{t}, ANSI escape sequences are used
 for color, otherwise, the older mechanism is used.  The internal variable
-can be set by evaluating @code{(use-virtual-terminal n)}, where @code{n} is a
-number: if @code{n} is non-zero and the feature is supported by your terminal,
-it will be enabled, otherwise the feature will be disabled.
+can be set by evaluating @code{(w32-use-virtual-terminal x)}, where @code{x} is
+@code{t} or @code{nil}: if @code{x} is @code{t} and the feature is supported by
+your terminal, it will be enabled.  Otherwise, the feature will be disabled.
 
 @ifnottex
 @include msdos-xtra.texi

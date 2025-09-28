@@ -46,10 +46,12 @@
 "A list of VGA console colors, their indices and 16-bit RGB values.")
 
 (declare-function x-setup-function-keys "term/common-win" (frame))
-(declare-function get-screen-color "w32console.c" ())
+(declare-function get-screen-color "w32console.c" (&optional vtp))
+(declare-function set-screen-color "w32console.c" (&optional vtp))
 (declare-function w32-get-console-codepage "w32proc.c" ())
 (declare-function w32-get-console-output-codepage "w32proc.c" ())
-(declare-function use-virtual-terminal "w32console.c")
+(declare-function w32-use-virtual-terminal "w32console.c" (enable))
+(declare-function w32-use-virtual-terminal-p "w32console.c" ())
 
 (defun w32-tty-set-base-colors (vtp)
   "Re-order `w32-tty-standard-colors' based on the value of VTP."
@@ -59,10 +61,10 @@
                "blue"      "magenta"      "cyan"       "lightgray"
                "darkgray"  "lightred"     "lightgreen" "yellow"
                "lightblue" "lightmagenta" "lightcyan"  "white")
-             '("black"     "blue"         "green"      "cyan"
-               "red"       "magenta"      "brown"      "lightgray"
-               "darkgray"  "lightblue"    "lightgreen" "lightcyan"
-               "lightred"  "lightmagenta" "yellow"     "white"))))
+           '("black"     "blue"         "green"      "cyan"
+             "red"       "magenta"      "brown"      "lightgray"
+             "darkgray"  "lightblue"    "lightgreen" "lightcyan"
+             "lightred"  "lightmagenta" "yellow"     "white"))))
     (setq w32-tty-standard-colors
           (mapcar
            (lambda (n) (let ((c (assoc n w32-tty-standard-colors)))
@@ -143,7 +145,7 @@
   "Set up color definitions and frame parameters for w32 tty display."
   (tty-color-clear)
   (let ((ncolors (display-color-cells))
-        (vtp (use-virtual-terminal)))
+        (vtp (w32-use-virtual-terminal-p)))
     (w32-tty-set-base-colors vtp)
     (if vtp
         (cond ((= ncolors 16777216) (w32-tty-define-24bit-colors))

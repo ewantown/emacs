@@ -1024,9 +1024,14 @@ colored display.
 @itemx ansi8
 Turn on the color support unconditionally, and use color commands
 specified by the ANSI escape sequences for the 8 standard colors.
+@item 8bit
+Turn on support for 8-bit (256 color) display if available.
+Currently this option is effective on MS-Windows (10+) only.
+On other systems, maximal color support is enabled automatically.
 @item 24bit
-Turn on support for all defined 24-bit RGB colors if available.
-Currently this is effective on MS-Windows (10+) only.
+Turn on support for 24-bit (true color) display if available.
+Currently this option is effective on MS-Windows (10+) only.
+On other systems, 24-bit color is enabled automatically if supported.
 @item @var{num}
 Use color mode for @var{num} colors.  If @var{num} is @minus{}1, turn off
 color support (equivalent to @samp{never}); if it is 0, use the
