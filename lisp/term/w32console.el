@@ -149,7 +149,7 @@
     (w32-tty-set-base-colors vtp)
     (if vtp
         (cond ((= ncolors 16777216) (w32-tty-define-24bit-colors))
-              ((= ncolors 265)      (w32-tty-define-256-colors))
+              ((= ncolors 256)      (w32-tty-define-256-colors))
               (t                    (w32-tty-define-base-colors)))
       (w32-tty-define-base-colors))
     (clear-face-cache)
