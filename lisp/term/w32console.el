@@ -82,8 +82,8 @@
                    color  (car colors)))
            nbase)))
 
-(defun w32-tty-define-256-colors ()
-  "Defines 256-color space for w32 tty display."
+(defun w32-tty-define-8bit-colors ()
+  "Defines 8-bit color space for w32 tty display."
   (let ((r 0) (b 0) (g 0)
         (n (- 256 (w32-tty-define-base-colors)))
         (convert-to-16bit (lambda (prim) (logior prim (ash prim 8)))))
@@ -149,7 +149,7 @@
     (w32-tty-set-base-colors vtp)
     (if vtp
         (cond ((= ncolors 16777216) (w32-tty-define-24bit-colors))
-              ((= ncolors 256)      (w32-tty-define-256-colors))
+              ((= ncolors 256)      (w32-tty-define-8bit-colors))
               (t                    (w32-tty-define-base-colors)))
       (w32-tty-define-base-colors))
     (clear-face-cache)
