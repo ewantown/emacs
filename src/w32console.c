@@ -59,6 +59,7 @@ static WORD w32_face_attributes (struct frame *f, int face_id);
 static int  w32con_write_vt_seq (const char *);
 static void turn_on_face (struct frame *, int face_id);
 static void turn_off_face (struct frame *, int face_id);
+static COORD w32con_get_cursor_coords ();
 
 static COORD	cursor_coords;
 static HANDLE	prev_screen, cur_screen;
@@ -117,6 +118,14 @@ w32con_write_vt_seq (const char *seq)
   SSPRINTF (buf, &n, SEQMAX, seq, NULL);
   if (n) WriteConsole (cur_screen, (LPCSTR) buf, n, &k, NULL);
   return k;
+}
+
+static COORD
+w32con_get_cursor_coords ()
+{
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
+  return info.dwCursorPosition;
 }
 
 /* Move the cursor to (ROW, COL) on FRAME.  */
