@@ -391,17 +391,27 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	      WriteConsole (cur_screen, conversion_buffer,
 			    coding->produced, &r, NULL);
 	      turn_off_face (f, face_id);
-	      cursor_coords.X += coding->produced;
+	      cursor_coords = w32con_get_cursor_coords ();
 	    }
 	  else
 	    {
+	      /* Assume single byte encoding...  */
+	      ptrdiff_t nchars = coding->produced;
+	      ptrdiff_t ncols = nchars;
+	      /* ... but correct that by counting characters if using UTF-8.
+		 FIXME: this doesn't handle character compositions.  */
+	      if (coding->encoder == encode_coding_utf_8)
+		{
+		  ncols = strwidth (conversion_buffer, nchars);
+		  nchars = multibyte_chars_in_text (conversion_buffer, nchars);
+		}
+
 	      /* Turn appearance modes of the face of the run on.  */
 	      WORD char_attr = w32_face_attributes (attr_frame, face_id);
 
 	      /* Set the attribute for these characters.  */
 	      if (!FillConsoleOutputAttribute (cur_screen, char_attr,
-					       coding->produced, cursor_coords,
-					       &r))
+					       nchars, cursor_coords, &r))
 		{
 		  printf ("Failed writing console attributes: %lu\n",
 			  GetLastError ());
@@ -418,7 +428,7 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 		  fflush (stdout);
 		}
 
-	      cursor_coords.X += coding->produced;
+	      cursor_coords.X += ncols;
 	      w32con_move_cursor (f, cursor_coords.Y, cursor_coords.X);
 	    }
 	}
@@ -470,19 +480,27 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	  DWORD char_attr = w32_face_attributes (f, face_id);
 	  COORD start_coords;
 
+	  /* Assume single byte encoding...  */
+	  ptrdiff_t nchars = coding->produced;
+	  /* ... but correct that by counting characters if using UTF-8.
+	   FIXME: this doesn't handle character compositions.  */
+	  if (coding->encoder == encode_coding_utf_8)
+	    nchars = multibyte_chars_in_text (conversion_buffer, nchars);
+
 	  start_coords.X = x;
 	  start_coords.Y = y;
 
 	  /* Set the attribute for these characters.  */
 	  if (!FillConsoleOutputAttribute (cur_screen, char_attr,
-					   coding->produced, start_coords,
+					   nchars, start_coords,
 					   &filled))
 	    DebPrint (("Failed writing console attributes: %d\n", GetLastError ()));
 	  else
 	    {
 	      /* Write the characters.  */
 	      if (!WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
-						filled, start_coords, &written))
+						coding->produced, start_coords,
+						&written))
 		DebPrint (("Failed writing console characters: %d\n",
 			   GetLastError ()));
 	    }
