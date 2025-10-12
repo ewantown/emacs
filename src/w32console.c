@@ -606,6 +606,12 @@ w32con_delete_glyphs (struct frame *f, int n)
 static void
 w32con_setup_virtual_terminal (void)
 {
+  /* Disable unless 24bit color is supported (v. > 10.0.15063).  */
+  w32_use_virtual_terminal = w32_use_virtual_terminal
+    && (w32_major_version > 10
+	|| (w32_major_version == 10
+	    && (w32_minor_version > 0 || w32_build_number > 15063)));
+
   DWORD out_mode;
   GetConsoleMode (cur_screen, &out_mode);
   out_mode |= ENABLE_PROCESSED_OUTPUT;
