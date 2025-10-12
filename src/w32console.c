@@ -395,23 +395,16 @@ w32con_write_glyphs (struct frame *f, register struct glyph *string,
 	    }
 	  else
 	    {
-	      /* Assume single byte encoding...  */
-	      ptrdiff_t nchars = coding->produced;
-	      ptrdiff_t ncols = nchars;
-	      /* ... but correct that by counting characters if using UTF-8.
+	      /* Account for character width.
 		 FIXME: this doesn't handle character compositions.  */
-	      if (coding->encoder == encode_coding_utf_8)
-		{
-		  ncols = strwidth (conversion_buffer, nchars);
-		  nchars = multibyte_chars_in_text (conversion_buffer, nchars);
-		}
+	      ptrdiff_t ncols = strwidth (coding->source, coding->src_bytes);
 
 	      /* Turn appearance modes of the face of the run on.  */
 	      WORD char_attr = w32_face_attributes (attr_frame, face_id);
 
 	      /* Set the attribute for these characters.  */
-	      if (!FillConsoleOutputAttribute (cur_screen, char_attr,
-					       nchars, cursor_coords, &r))
+	      if (!FillConsoleOutputAttribute (cur_screen, char_attr, ncols,
+					       cursor_coords, &r))
 		{
 		  printf ("Failed writing console attributes: %lu\n",
 			  GetLastError ());
@@ -480,15 +473,12 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	  DWORD char_attr = w32_face_attributes (f, face_id);
 	  COORD start_coords;
 
-	  /* Assume single byte encoding...  */
-	  ptrdiff_t nchars = coding->produced;
-	  /* ... but correct that by counting characters if using UTF-8.
-	   FIXME: this doesn't handle character compositions.  */
-	  if (coding->encoder == encode_coding_utf_8)
-	    nchars = multibyte_chars_in_text (conversion_buffer, nchars);
-
 	  start_coords.X = x;
 	  start_coords.Y = y;
+
+	  /* Account for character width.
+	     FIXME: this doesn't handle character compositions.  */
+	  ptrdiff_t ncols = strwidth (coding->source, coding->src_bytes);
 
 	  /* Set the attribute for these characters.  */
 	  if (!FillConsoleOutputAttribute (cur_screen, char_attr,
