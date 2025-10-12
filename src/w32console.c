@@ -490,9 +490,8 @@ w32con_write_glyphs_with_face (struct frame *f, register int x, register int y,
 	  ptrdiff_t ncols = strwidth (coding->source, coding->src_bytes);
 
 	  /* Set the attribute for these characters.  */
-	  if (!FillConsoleOutputAttribute (cur_screen, char_attr,
-					   nchars, start_coords,
-					   &filled))
+	  if (!FillConsoleOutputAttribute (cur_screen, char_attr, ncols,
+					   start_coords, &filled))
 	    DebPrint (("Failed writing console attributes: %d\n", GetLastError ()));
 	  else
 	    {
