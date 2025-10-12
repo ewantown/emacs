@@ -1169,6 +1169,7 @@ DEFUN ("w32-use-virtual-terminal", Fw32_use_virtual_terminal, Sw32_use_virtual_t
     return Qnil;
   }
 
+  w32con_setup_virtual_terminal ();
   return Qt;
 }
 
